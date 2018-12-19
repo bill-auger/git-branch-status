@@ -1,0 +1,26 @@
+{
+  "name": "git-branch-status",
+  "version": "1.0.0",
+  "description": "print pretty git branch sync status reports",
+  "bin": {
+    "git-branch-status": "git-branch-status"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bill-auger/git-branch-status.git"
+  },
+  "keywords": [
+    "git",
+    "branch",
+    "status"
+  ],
+  "author": "Bill Auger",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/bill-auger/git-branch-status/issues"
+  },
+  "homepage": "https://github.com/bill-auger/git-branch-status#readme"
+}

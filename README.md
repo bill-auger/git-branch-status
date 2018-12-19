@@ -37,6 +37,9 @@ A number of command-line switches exist, selecting various reports that compare 
 
 
 ```
+INSTALL:
+  npm install -g git-branch-status
+
 USAGE:
 
   git-branch-status
