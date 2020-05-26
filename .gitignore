@@ -1,5 +1,7 @@
 *
 !gbs-config.sh.inc.example
+!gbs-tests.sh
+!gbs-tests-constants.sh.inc
 !git-branch-status
 !LICENSE
 !README.md

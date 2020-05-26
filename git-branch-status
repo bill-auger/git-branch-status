@@ -332,6 +332,25 @@ Exit() # (exit_msg exit_status)
 }
 
 
+## testing ##
+
+TEST_CONFIG()
+{
+  echo "THIS_DIR=$THIS_DIR"
+  echo "GBS_CFG_FILE=$( [[ -f "$GBS_CFG_FILE" ]] && echo "(exists): " )$GBS_CFG_FILE"
+  echo "DEF_CFG_FILE=$( [[ -f "$DEF_CFG_FILE" ]] && echo "(exists): " )$DEF_CFG_FILE"
+  echo "GBS_FETCH_PERIOD=$GBS_FETCH_PERIOD"
+  echo "CFG_FETCH_PERIOD=$CFG_FETCH_PERIOD"
+  echo "FETCH_PERIOD=$FETCH_PERIOD"
+  echo "GBS_LAST_FETCH_FILE=$GBS_LAST_FETCH_FILE"
+  echo "CFG_LAST_FETCH_FILE=$CFG_LAST_FETCH_FILE"
+  echo "LAST_FETCH_FILE=$LAST_FETCH_FILE"
+  echo "GBS_USE_ANSI_COLOR=$GBS_USE_ANSI_COLOR"
+  echo "CFG_USE_ANSI_COLOR=$CFG_USE_ANSI_COLOR"
+  echo "USE_ANSI_COLOR=$USE_ANSI_COLOR"
+}
+
+
 ## business ##
 
 Init() # (cli_args)
@@ -343,6 +362,8 @@ Init() # (cli_args)
   local show_all_remote=0
   local branch_a=''
   local branch_b=''
+
+  (( $GBS_TEST_CFG )) && TEST_CONFIG && exit
 
   # parse CLI switches
   case "$1" in
