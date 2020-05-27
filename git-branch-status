@@ -84,6 +84,15 @@ EXAMPLES:
   $ git-branch-status --branch specific-branch
     | specific-branch | (even) | (ahead 2) | origin/specific-branch |
 
+  # compare a specific local branch against all other local branches
+  $ git-branch-status -c        master
+  $ git-branch-status --cleanup master
+   *| master             | (behind 2) | (even)    | master |
+    | merged-into-master | (even)     | (even)    | master |
+    | wip                | (even)     | (ahead 1) | master |
+    branch: merged-into-master is identical to: master
+    Delete merged-into-master? [y/N]
+
   # show the timestamp of each out-of-sync local ref
   $ git-branch-status -d
   $ git-branch-status --dates
@@ -188,6 +197,7 @@ readonly UNTRACKED_SYNCHED_MSG="These branches are synchronized with no tracking
 readonly REMOTES_SYNCED_MSG="All local branches with corresponding names on this remote are synchronized with that remote"
 readonly EXIT_SUCCESS=0
 readonly EXIT_FAILURE=1
+# readonly IS_CLEANUP_MODE # Init()
 # readonly SHOW_DATES      # Init()
 # readonly SHOW_ALL_SYNCED # Init()
 # readonly SHOW_ALL_LOCAL  # Init()
@@ -236,7 +246,7 @@ GetRefs() # (refs_dir)
 {
   local refs_dir=$1
   local fmt='%(refname:short) %(upstream:short)'
-  local sort=$( (( $SHOW_DATES )) && echo '--sort=creatordate')
+  local sort=$( (( $SHOW_DATES )) && echo '--sort=authordate' )
 
   git for-each-ref --format="$fmt" $sort $refs_dir 2> /dev/null
 }
@@ -383,6 +393,7 @@ Init() # (cli_args)
 {
   local is_all_mode=0
   local is_branch_mode=0
+  local is_cleanup_mode=0
   local is_dates_mode=0
   local is_local_mode=0
   local is_remotes_mode=0
@@ -400,6 +411,7 @@ Init() # (cli_args)
   case "$1" in
        '-a'|'--all'     ) is_all_mode=1               ;;
        '-b'|'--branch'  ) is_branch_mode=1            ;;
+       '-c'|'--cleanup' ) is_cleanup_mode=1           ;;
        '-d'|'--dates'   ) is_dates_mode=1             ;;
        '-h'|'--help'    ) Exit "$USAGE" $EXIT_SUCCESS ;;
        '-l'|'--local'   ) is_local_mode=1             ;;
@@ -413,6 +425,7 @@ Init() # (cli_args)
   # prepare state
   (( $is_all_mode     )) && show_all=1
   (( $is_branch_mode  )) && branch_a=$( [[ "$2" ]] && echo $2 || echo $(GetCurrentBranch) )
+  (( $is_cleanup_mode )) && branch_a="$2"     show_all_synced=1 show_dates=1
   (( $is_dates_mode   )) && branch_a=$2       branch_b=$3       show_dates=1
   (( $is_local_mode   )) && show_all_local=1  show_all_synced=1
   (( $is_remotes_mode )) && show_all_remote=1 show_all_synced=1
@@ -427,7 +440,9 @@ Init() # (cli_args)
   (( $(AssertHasCommits         ) ))                         || Exit "$NO_COMMITS_MSG"
   (( $(DoesBranchExist $branch_a) )) || [[ -z "$branch_a" ]] || Exit "$INVALID_BRANCH_MSG '$branch_a'"
   (( $(DoesBranchExist $branch_b) )) || [[ -z "$branch_b" ]] || Exit "$INVALID_BRANCH_MSG '$branch_b'"
+  (( ! $is_cleanup_mode           )) || [[ "$branch_a"    ]] || Exit "$ARG_REQUIRED_MSG"
 
+  readonly IS_CLEANUP_MODE=$is_cleanup_mode
   readonly SHOW_DATES=$show_dates
   readonly SHOW_ALL_SYNCED=$(( $show_all + $show_all_synced )) # show branches that are synchronized with their counterparts
   readonly SHOW_ALL_LOCAL=$((  $show_all + $show_all_local  )) # show local branches that are not tracking any upstream
@@ -438,7 +453,7 @@ Init() # (cli_args)
 
 FetchRemotes()
 {
-  if   (( ${FETCH_PERIOD} >= 0 ))
+  if   (( ${FETCH_PERIOD} >= 0 )) && (( ! ${IS_CLEANUP_MODE} ))
   then local now_ts=$(date +%s)
        local last_fetch_ts=$(( $(cat ${LAST_FETCH_FILE} 2> /dev/null) + 0 ))
 
@@ -451,11 +466,55 @@ FetchRemotes()
 
 GenerateReports()
 {
-  if   [ "$COMPARE_BRANCH" ]
+  if   (( ${IS_CLEANUP_MODE} ))
+  then CleanupReport
+  elif [[ "$COMPARE_BRANCH" ]]
   then ArbitraryReport $(IsTrackedBranch $FILTER_BRANCH $COMPARE_BRANCH)
   else (( ! $SHOW_ALL_REMOTE || $SHOW_ALL_LOCAL )) && LocalReport
        (( $SHOW_ALL_REMOTE                      )) && RemoteReport
   fi
+}
+
+CleanupReport()
+{
+  local n_results
+  local result_n
+  local local_msg
+  local behind_msg
+  local ahead_msg
+  local remote_msg
+  local compare_branch
+  local n_behind
+  local n_ahead
+  local base_branch
+  local compare_branches=()
+
+  # compare all local branches against $FILTER_BRANCH
+  while read local upstream ; do GenerateReport ${local} ${FILTER_BRANCH} ; done < <(GetLocalRefs) ;
+
+  n_results=${#LocalMsgs[@]}
+
+  for (( result_n = 0 ; result_n < n_results ; ++result_n ))
+  do  local_msg=$( echo ${LocalMsgs[ $result_n]}         | sed "$JOIN_REGEX")
+      behind_msg=$(echo ${BehindMsgs[$result_n]:$trim_w} | sed "$JOIN_REGEX")
+      ahead_msg=$( echo ${AheadMsgs[ $result_n]:$trim_w} | sed "$JOIN_REGEX")
+      remote_msg=$(echo ${RemoteMsgs[$result_n]}         | sed "$JOIN_REGEX")
+      compare_branch=$(sed -E "s|[0-9-]* +(.*)|\1|" <<<${local_msg} )
+      base_branch=$(   sed -E "s|[0-9-]* +(.*)|\1|" <<<${remote_msg})
+      is_behind=$( [[ "${behind_msg}" != "(even)" ]] && echo 1 || echo 0 )
+      is_ahead=$(  [[ "${ahead_msg}"  != "(even)" ]] && echo 1 || echo 0 )
+
+      ! (( $is_behind + $is_ahead )) && compare_branches+=( $compare_branch )
+  done
+
+  n_results=${#compare_branches[@]}
+
+  PrintReport "locals <-> ${FILTER_BRANCH}" ""
+  for (( result_n = 0 ; result_n < n_results ; ++result_n ))
+  do  compare_branch=${compare_branches[$result_n]}
+      echo -e "\tbranch: $compare_branch is identical to: $base_branch\n\tDelete $compare_branch? [y/N]"
+      read -p " " -n 1 -r ; echo ; [[ $REPLY =~ ^[Yy]$ ]] && git branch -D $compare_branch > /dev/null
+  done
 }
 
 ArbitraryReport() # (is_tracked_branch)
@@ -509,8 +568,12 @@ GenerateReport() # (base_branch compare_branch)
   # filter out heads
   [[ "$base_branch" != 'HEAD' ]] || return
 
-  # filter branches per CLI arg
-  [ -z "$FILTER_BRANCH" -o "$base_branch" == "$FILTER_BRANCH" ] || return
+  if   (( $IS_CLEANUP_MODE ))
+  then # avoid comparing compare_branch against itself in cleanup mode
+       [[ "$base_branch" != "$compare_branch"                       ]] || return
+  else # filter branches per CLI arg
+       [[ -z "$FILTER_BRANCH" || "$base_branch" == "$FILTER_BRANCH" ]] || return
+  fi
 
   if   (( ! $does_base_branch_exist )) && (( ! $does_compare_branch_exist )) ; then return ;
   elif ((   $does_base_branch_exist )) && ((   $does_compare_branch_exist ))

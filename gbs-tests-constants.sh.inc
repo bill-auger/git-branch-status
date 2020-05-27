@@ -199,6 +199,15 @@ EXAMPLES:
   $ git-branch-status --branch specific-branch
     | specific-branch | (even) | (ahead 2) | origin/specific-branch |
 
+  # compare a specific local branch against all other local branches
+  $ git-branch-status -c        master
+  $ git-branch-status --cleanup master
+   *| master             | (behind 2) | (even)    | master |
+    | merged-into-master | (even)     | (even)    | master |
+    | wip                | (even)     | (ahead 1) | master |
+    branch: merged-into-master is identical to: master
+    Delete merged-into-master? [y/N]
+
   # show the timestamp of each out-of-sync local ref
   $ git-branch-status -d
   $ git-branch-status --dates
