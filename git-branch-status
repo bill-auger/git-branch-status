@@ -171,14 +171,15 @@ readonly JOIN_REGEX="s/$JOIN_CHAR/ /g"
 readonly TRIM_REGEX="s/.*\(.\{$MAX_DIVERGENCE_W\}\)$/\1/"
 readonly STAR='*'
 readonly DELIM='|'
-readonly NO_UPSTREAM="(no${JOIN_CHAR}upstream)"
-readonly NO_LOCAL="(no${JOIN_CHAR}local)"
+readonly TTY_W_MSG="TTY must be wider than $MIN_TTY_W chars"
 readonly NOT_REPO_MSG="Not a git repo"
 readonly BARE_REPO_MSG="Bare repo"
 readonly NO_COMMITS_MSG="No commits"
-readonly TTY_W_MSG="TTY must be wider than $MIN_TTY_W chars"
 readonly INVALID_BRANCH_MSG="No such branch:"
 readonly INVALID_LOCAL_BRANCH_MSG="No such local branch:"
+readonly ARG_REQUIRED_MSG="This option requires an argument"
+readonly NO_UPSTREAM="(no${JOIN_CHAR}upstream)"
+readonly NO_LOCAL="(no${JOIN_CHAR}local)"
 readonly NO_RESULTS_MSG="Nothing to compare"
 readonly NO_REFS_MSG="(No data)"
 readonly LOCALS_SYNCED_MSG="All tracking branches are synchronized with their upstreams"
@@ -368,6 +369,13 @@ TEST_CONFIG()
 
 Init() # (cli_args)
 {
+  local is_all_mode=0
+  local is_branch_mode=0
+  local is_dates_mode=0
+  local is_local_mode=0
+  local is_remotes_mode=0
+  local is_verbose_mode=0
+  local is_default_mode=0
   local show_dates=0
   local show_all=0
   local show_all_synced=0
@@ -380,25 +388,35 @@ Init() # (cli_args)
 
   # parse CLI switches
   case "$1" in
-       '-a'|'--all'     ) show_all=1                                                ;;
-       '-b'|'--branch'  ) [ "$2" ] && branch_a="$2" || branch_a=$(GetCurrentBranch) ;;
-       '-d'|'--dates'   ) branch_a="$2"     ; branch_b="$3"     ; show_dates=1      ;;
-       '-h'|'--help'    ) Exit "$USAGE" $EXIT_SUCCESS                               ;;
-       '-l'|'--local'   ) show_all_local=1  ; show_all_synced=1 ;                   ;;
-       '-r'|'--remotes' ) show_all_remote=1 ; show_all_synced=1 ;                   ;;
-       '-v'|'--verbose' ) show_all=1        ; show_dates=1      ;                   ;;
-       *                ) branch_a="$1"     ; branch_b="$2"     ;                   ;;
+       '-a'|'--all'     ) is_all_mode=1               ;;
+       '-b'|'--branch'  ) is_branch_mode=1            ;;
+       '-d'|'--dates'   ) is_dates_mode=1             ;;
+       '-h'|'--help'    ) Exit "$USAGE" $EXIT_SUCCESS ;;
+       '-l'|'--local'   ) is_local_mode=1             ;;
+       '-r'|'--remotes' ) is_remotes_mode=1           ;;
+       '-v'|'--verbose' ) is_verbose_mode=1           ;;
+       *                ) is_default_mode=1           ;;
   esac
 
+  (( $GBS_TEST_CFG )) && TEST_CONFIG
+
+  # prepare state
+  (( $is_all_mode     )) && show_all=1
+  (( $is_branch_mode  )) && branch_a=$( [[ "$2" ]] && echo $2 || echo $(GetCurrentBranch) )
+  (( $is_dates_mode   )) && branch_a=$2       branch_b=$3       show_dates=1
+  (( $is_local_mode   )) && show_all_local=1  show_all_synced=1
+  (( $is_remotes_mode )) && show_all_remote=1 show_all_synced=1
+  (( $is_verbose_mode )) && show_all=1        show_dates=1
+  (( $is_default_mode )) && branch_a=$1       branch_b=$2
+  [[ "$branch_a"      ]] && show_all_local=1 # force "no upstream" message for non-tracking branches
+
   # sanity checks
-  (( $(AssertIsValidRepo  )       ))                                            || Exit "$NOT_REPO_ERR"
-  (( $(AssertIsNotBareRepo)       ))                                            || Exit "$BARE_REPO_MSG"
-  (( $(AssertHasCommits   )       ))                                            || Exit "$NO_COMMITS_MSG"
-  (( $(CurrentTtyW) >= $MIN_TTY_W ))                                            || Exit "$TTY_W_MSG"
-  [[ -z "$branch_a" ]] || (($(DoesBranchExist $branch_a)))                      || Exit "$INVALID_BRANCH_MSG '$branch_a'"
-  [[ -z "$branch_b" ]] || (($(DoesBranchExist $branch_b)))                      || Exit "$INVALID_BRANCH_MSG '$branch_b'"
-  [[ -z "$branch_a" ]] || (($(IsLocalBranch   $branch_a))) || [[ "$branch_b" ]] || Exit "$INVALID_LOCAL_BRANCH_MSG '$branch_a'"
-  [[ -z "$branch_a" ]] || show_all_local=1 # force "no upstream" message for non-tracking branches
+  (( $(CurrentTtyW) >= $MIN_TTY_W ))                         || Exit "$TTY_W_MSG"
+  (( $(AssertIsValidRepo        ) ))                         || Exit "$NOT_REPO_ERR"
+  (( $(AssertIsNotBareRepo      ) ))                         || Exit "$BARE_REPO_MSG"
+  (( $(AssertHasCommits         ) ))                         || Exit "$NO_COMMITS_MSG"
+  (( $(DoesBranchExist $branch_a) )) || [[ -z "$branch_a" ]] || Exit "$INVALID_BRANCH_MSG '$branch_a'"
+  (( $(DoesBranchExist $branch_b) )) || [[ -z "$branch_b" ]] || Exit "$INVALID_BRANCH_MSG '$branch_b'"
 
   readonly SHOW_DATES=$show_dates
   readonly SHOW_ALL_SYNCED=$(( $show_all + $show_all_synced )) # show branches that are synchronized with their counterparts
