@@ -54,10 +54,14 @@ EXAMPLES:
     | master         | (behind 1) | (even)    | origin/master         |
 
   # compare two arbitrary branches - local or remote
-  $ git-branch-status local-arbitrary-branch fork/arbitrary-branch
-    | local-arbitrary-branch | (even)     | (ahead 1) | fork/arbitrary-branch  |
-  $ git-branch-status fork/arbitrary-branch local-arbitrary-branch
-    | fork/arbitrary-branch  | (behind 1) | (even)    | local-arbitrary-branch |
+  $ git-branch-status a-branch another-branch
+    | a-branch            | (even)     | (even) | another-branch            |
+  $ git-branch-status a-branch a-remote/any-branch
+    | a-branch            | (even)     | (even) | a-remote/any-branch       |
+  $ git-branch-status a-remote/any-branch a-branch
+    | a-remote/any-branch | (behind 1) | (even) | a-branch                  |
+  $ git-branch-status a-remote/any-branch other-remote/other-branch
+    | a-remote/any-branch | (behind 1) | (even) | other-remote/other-branch |
 
   # show all branches - local and remote, regardless of state or relationship
   $ git-branch-status -a
@@ -80,10 +84,16 @@ EXAMPLES:
   $ git-branch-status --branch specific-branch
     | specific-branch | (even) | (ahead 2) | origin/specific-branch |
 
-  # show the timestamp of each HEAD
+  # show the timestamp of each out-of-sync local ref
   $ git-branch-status -d
   $ git-branch-status --dates
-    | 1999-12-31 master | (behind 2) | (even) | 2000-01-01 origin/master |
+    | 1999-12-30 master   | (even)     | (even) | 1999-12-30 origin/master  |
+    | 1999-12-31 devel    | (behind 2) | (even) | 2000-01-01 origin/devel   |
+
+  # show the timestamp of arbitrary branch refs
+  $ git-branch-status -d      a-branch another-branch
+  $ git-branch-status --dates a-branch another-branch
+    | 1999-12-31 a-branch | (even)     | (even) | 2000-01-01 another-branch |
 
   # print this usage message
   $ git-branch-status -h
@@ -116,18 +126,21 @@ USAGE_MSG
 
 readonly THIS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo $0)")"
 readonly DEF_CFG_FILE="${THIS_DIR}"/gbs-config.sh.inc
+readonly DEF_FETCH_PERIOD='-1'
+readonly DEF_LAST_FETCH_FILE=~/.GBS_LAST_FETCH
+readonly DEF_USE_ANSI_COLOR='1'
 readonly CFG_FILE=$(        ( [[ "$GBS_CFG_FILE" && -f "$GBS_CFG_FILE" ]] && echo -n "$GBS_CFG_FILE"        ) || \
                             ( [[ "$DEF_CFG_FILE" && -f "$DEF_CFG_FILE" ]] && echo -n "$DEF_CFG_FILE"        )    )
 source "$CFG_FILE" 2> /dev/null
 readonly FETCH_PERIOD=$(    ( [[ "$GBS_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$GBS_FETCH_PERIOD"    ) || \
                             ( [[ "$CFG_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$CFG_FETCH_PERIOD"    ) || \
-                                                                             echo -n '-1'                        )
+                                                                             echo -n "$DEF_FETCH_PERIOD"         )
 readonly LAST_FETCH_FILE=$( ( touch "$GBS_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$GBS_LAST_FETCH_FILE" ) || \
                             ( touch "$CFG_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$CFG_LAST_FETCH_FILE" ) || \
-                                                                             echo -n ~/.GBS_LAST_FETCH           )
+                                                                             echo -n "$DEF_LAST_FETCH_FILE"      )
 readonly USE_ANSI_COLOR=$(  ( [[ "$GBS_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$GBS_USE_ANSI_COLOR"  ) || \
                             ( [[ "$CFG_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$CFG_USE_ANSI_COLOR"  ) || \
-                                                                             echo -n '1'                         )
+                                                                             echo -n "$DEF_USE_ANSI_COLOR"       )
 
 
 ## constants ##
@@ -204,18 +217,18 @@ declare -a RemoteColors=()
 
 AssertIsValidRepo()
 {
-  [ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" == 'true' ] || \
-  ! (( $(AssertIsNotBareRepo) ))                                      && echo 1 || echo 0
+  [[ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" == 'true' ]] || \
+  ! (( $(AssertIsNotBareRepo) ))                                        && echo 1 || echo 0
 }
 
 AssertHasCommits()
 {
-  [ "$(git cat-file -t HEAD 2> /dev/null)" ] && echo 1 || echo 0
+  [[ "$(git cat-file -t HEAD 2> /dev/null)" ]] && echo 1 || echo 0
 }
 
 AssertIsNotBareRepo()
 {
-  [ "$(git rev-parse --is-bare-repository 2> /dev/null)" != 'true' ] && echo 1 || echo 0
+  [[ "$(git rev-parse --is-bare-repository 2> /dev/null)" != 'true' ]] && echo 1 || echo 0
 }
 
 GetRefs() # (refs_dir)
@@ -262,10 +275,10 @@ GetUpstreamBranch() # (local_branch)
 IsCurrentBranch() # (branch_name)
 {
   local branch=$1
-  local this_branch=$(AppendHeadDate $branch)
-  local current_branch=$(AppendHeadDate $(GetCurrentBranch))
+  local this_branch=$(AppendCommitDate $branch)
+  local current_branch=$(AppendCommitDate $(GetCurrentBranch))
 
-  [ "$this_branch" == "$current_branch" ] && echo 1 || echo 0
+  [[ "$this_branch" == "$current_branch" ]] && echo 1 || echo 0
 }
 
 IsLocalBranch() # (branch_name)
@@ -273,7 +286,7 @@ IsLocalBranch() # (branch_name)
   local branch=$1
   local is_local_branch=$(git branch -a | grep -E "^.* $branch$")
 
-  [ "$is_local_branch" ] && echo 1 || echo 0
+  [[ "$is_local_branch" ]] && echo 1 || echo 0
 }
 
 IsTrackedBranch() # (base_branch_name compare_branch_name)
@@ -282,7 +295,7 @@ IsTrackedBranch() # (base_branch_name compare_branch_name)
   local compare_branch=$2
   local upstream_branch=$(GetUpstreamBranch $base_branch)
 
-  [ "$compare_branch" == "$upstream_branch" ] && echo 1 || echo 0
+  [[ "$compare_branch" == "$upstream_branch" ]] && echo 1 || echo 0
 }
 
 DoesBranchExist() # (branch_name)
@@ -290,16 +303,16 @@ DoesBranchExist() # (branch_name)
   local branch=$1
   local is_known_branch=$(git branch -a | grep -E "^.* (remotes\/)?$branch$")
 
-  [ "$is_known_branch" ] && echo 1 || echo 0
+  [[ "$is_known_branch" ]] && echo 1 || echo 0
 }
 
-AppendHeadDate() # (commit_ref)
+AppendCommitDate() # (ref)
 {
   local commit=$1
   local author_date=$(git log -n 1 --format=format:"%ai" $commit 2> /dev/null)
   local date=''
 
-  (($SHOW_DATES)) && [ "$author_date" ] && date="${author_date:0:10}$JOIN_CHAR"
+  (($SHOW_DATES)) && [[ "$author_date" ]] && date="${author_date:0:10}$JOIN_CHAR"
 
   echo $date$commit
 }
@@ -378,14 +391,14 @@ Init() # (cli_args)
   esac
 
   # sanity checks
-  (( $(AssertIsValidRepo  )       ))                                        || Exit "$NOT_REPO_ERR"
-  (( $(AssertIsNotBareRepo)       ))                                        || Exit "$BARE_REPO_MSG"
-  (( $(AssertHasCommits   )       ))                                        || Exit "$NO_COMMITS_MSG"
-  (( $(CurrentTtyW) >= $MIN_TTY_W ))                                        || Exit "$TTY_W_MSG"
-  [ -z "$branch_a" ] || (($(DoesBranchExist $branch_a)))                    || Exit "$INVALID_BRANCH_MSG '$branch_a'"
-  [ -z "$branch_b" ] || (($(DoesBranchExist $branch_b)))                    || Exit "$INVALID_BRANCH_MSG '$branch_b'"
-  [ -z "$branch_a" ] || (($(IsLocalBranch   $branch_a))) || [ "$branch_b" ] || Exit "$INVALID_LOCAL_BRANCH_MSG '$branch_a'"
-  [ -z "$branch_a" ] || show_all_local=1 # force "no upstream" message for non-tracking branches
+  (( $(AssertIsValidRepo  )       ))                                            || Exit "$NOT_REPO_ERR"
+  (( $(AssertIsNotBareRepo)       ))                                            || Exit "$BARE_REPO_MSG"
+  (( $(AssertHasCommits   )       ))                                            || Exit "$NO_COMMITS_MSG"
+  (( $(CurrentTtyW) >= $MIN_TTY_W ))                                            || Exit "$TTY_W_MSG"
+  [[ -z "$branch_a" ]] || (($(DoesBranchExist $branch_a)))                      || Exit "$INVALID_BRANCH_MSG '$branch_a'"
+  [[ -z "$branch_b" ]] || (($(DoesBranchExist $branch_b)))                      || Exit "$INVALID_BRANCH_MSG '$branch_b'"
+  [[ -z "$branch_a" ]] || (($(IsLocalBranch   $branch_a))) || [[ "$branch_b" ]] || Exit "$INVALID_LOCAL_BRANCH_MSG '$branch_a'"
+  [[ -z "$branch_a" ]] || show_all_local=1 # force "no upstream" message for non-tracking branches
 
   readonly SHOW_DATES=$show_dates
   readonly SHOW_ALL_SYNCED=$(( $show_all + $show_all_synced )) # show branches that are synchronized with their counterparts
@@ -411,17 +424,17 @@ FetchRemotes()
 GenerateReports()
 {
   if   [ "$COMPARE_BRANCH" ]
-  then CustomReport $(IsTrackedBranch $FILTER_BRANCH $COMPARE_BRANCH)
-  else (( !(( $SHOW_ALL_REMOTE )) || (( $SHOW_ALL_LOCAL )) )) && LocalReport
-       (( $SHOW_ALL_REMOTE                                 )) && RemoteReport
+  then ArbitraryReport $(IsTrackedBranch $FILTER_BRANCH $COMPARE_BRANCH)
+  else (( ! $SHOW_ALL_REMOTE || $SHOW_ALL_LOCAL )) && LocalReport
+       (( $SHOW_ALL_REMOTE                      )) && RemoteReport
   fi
 }
 
-CustomReport() # (is_tracked_branch)
+ArbitraryReport() # (is_tracked_branch)
 {
   local is_tracked_branch=$1
-  local synchronized_msg
-  (($is_tracked_branch)) && synchronized_msg="$BRANCH_SYNCED_MSG" || synchronized_msg="$UNTRACKED_SYNCHED_MSG"
+  local synchronized_msg=$( (( $is_tracked_branch )) && echo "$BRANCH_SYNCED_MSG"     || \
+                                                        echo "$UNTRACKED_SYNCHED_MSG"    )
 
   # compare sync status of arbitrary branches per cli args
   GenerateReport $FILTER_BRANCH $COMPARE_BRANCH
@@ -430,8 +443,8 @@ CustomReport() # (is_tracked_branch)
 
 LocalReport()
 {
-  local synchronized_msg
-  [ "$FILTER_BRANCH" ] && synchronized_msg="$BRANCH_SYNCED_MSG" || synchronized_msg="$LOCALS_SYNCED_MSG"
+  local synchronized_msg=$( [[ "$FILTER_BRANCH" ]] && echo "$BRANCH_SYNCED_MSG" || \
+                                                      echo "$LOCALS_SYNCED_MSG"    )
 
   # compare sync status of local branches to their upstreams
   while read local upstream ; do GenerateReport $local $upstream ; done < <(GetLocalRefs) ;
@@ -465,28 +478,27 @@ GenerateReport() # (base_branch compare_branch)
   local local_msg   ; local behind_msg   ; local ahead_msg   ; local remote_msg   ;
   local local_color ; local behind_color ; local ahead_color ; local remote_color ;
 
-  # filter heads
-  [ "$base_branch" != 'HEAD' ] || return
+  # filter out heads
+  [[ "$base_branch" != 'HEAD' ]] || return
 
   # filter branches per CLI arg
   [ -z "$FILTER_BRANCH" -o "$base_branch" == "$FILTER_BRANCH" ] || return
 
-  # parse local<->remote or arbitrary branches sync status
   if   (( ! $does_base_branch_exist )) && (( ! $does_compare_branch_exist )) ; then return ;
   elif ((   $does_base_branch_exist )) && ((   $does_compare_branch_exist ))
-  then local status=$(GetStatus $base_branch $compare_branch) ; (( ! $? )) || return ;
-
+  then # parse local<->remote or arbitrary branches sync status
+       local status=$(GetStatus $base_branch $compare_branch) ; local was_error=$?
        local n_behind=$(echo $status | tr " " "\n" | grep -c '^>')
        local n_ahead=$( echo $status | tr " " "\n" | grep -c '^<')
        local n_divergences=$(( $n_behind + $n_ahead ))
+       local color=$( (($is_tracked_branch)) && echo $CTRACKING || echo $CDEFAULT )
        (( $WereAnyDivergences + $n_divergences )) && WereAnyDivergences=1
-       WereAnyCompared=1
+       (( ! $was_error )) && WereAnyCompared=1 || return
 
        # filter branches by status
        (( $SHOW_ALL_SYNCED )) || (( $n_divergences > 0 )) || return
 
        # set data for branches with remote counterparts or arbitrary branches
-       (($is_tracked_branch)) && color=$CTRACKING || color=$CDEFAULT
        local_color=$color
        if   (( $n_behind ))
        then behind_msg="(behind$JOIN_CHAR$n_behind)" ; behind_color=$CBEHIND ;
@@ -500,21 +512,21 @@ GenerateReport() # (base_branch compare_branch)
   elif ((   $does_base_branch_exist )) && (( $SHOW_ALL_LOCAL ))
   then # dummy data for local branches with no upstream counterpart
        local_color=$CDEFAULT
-       behind_color="$CDEFAULT"  ; behind_msg="n/a"              ;
-       ahead_color="$CDEFAULT"   ; ahead_msg="n/a"               ;
+       behind_color=$CDEFAULT    ; behind_msg="n/a"              ;
+       ahead_color=$CDEFAULT     ; ahead_msg="n/a"               ;
        remote_color=$CNOUPSTREAM ; compare_branch="$NO_UPSTREAM" ;
   elif (( ! $does_base_branch_exist )) && (( $SHOW_ALL_REMOTE ))
   then # dummy data for remote branches with no local counterpart
        local_color=$CNOLOCAL     ; base_branch="$NO_LOCAL"       ;
-       behind_color="$CDEFAULT"  ; behind_msg="n/a"              ;
-       ahead_color="$CDEFAULT"   ; ahead_msg="n/a"               ;
+       behind_color=$CDEFAULT    ; behind_msg="n/a"              ;
+       ahead_color=$CDEFAULT     ; ahead_msg="n/a"               ;
        remote_color=$CDEFAULT
   else return
   fi
-  local_msg="$( AppendHeadDate $base_branch         )"
+  local_msg="$( AppendCommitDate $base_branch       )"
   behind_msg=$( echo $behind_msg | sed "$TRIM_REGEX")
   ahead_msg=$(  echo $ahead_msg  | sed "$TRIM_REGEX")
-  remote_msg="$(AppendHeadDate $compare_branch      )"
+  remote_msg="$(AppendCommitDate $compare_branch    )"
 
   # populate lists
   LocalMsgs=(    ${LocalMsgs[@]}    "$local_msg"    )
@@ -527,10 +539,10 @@ GenerateReport() # (base_branch compare_branch)
   RemoteColors=( ${RemoteColors[@]} "$remote_color" )
 
   # determine uniform column widths
-  if [ ${#local_msg}  -gt $LocalW  ] ; then LocalW=${#local_msg}   ; fi ;
-  if [ ${#behind_msg} -gt $BehindW ] ; then BehindW=${#behind_msg} ; fi ;
-  if [ ${#ahead_msg}  -gt $AheadW  ] ; then AheadW=${#ahead_msg}   ; fi ;
-  if [ ${#remote_msg} -gt $RemoteW ] ; then RemoteW=${#remote_msg} ; fi ;
+  if [[ ${#local_msg}  -gt $LocalW  ]] ; then LocalW=${#local_msg}   ; fi ;
+  if [[ ${#behind_msg} -gt $BehindW ]] ; then BehindW=${#behind_msg} ; fi ;
+  if [[ ${#ahead_msg}  -gt $AheadW  ]] ; then AheadW=${#ahead_msg}   ; fi ;
+  if [[ ${#remote_msg} -gt $RemoteW ]] ; then RemoteW=${#remote_msg} ; fi ;
 }
 
 PrintReport() # (table_header_line synchronized_msg)
@@ -562,7 +574,7 @@ PrintReport() # (table_header_line synchronized_msg)
   then local rule_w=$(( $LocalW + $BehindW + $AheadW + $RemoteW + $INNER_PADDING_W ))
 
        PrintHRule $rule_w
-       for (( result_n = 0 ; result_n < $n_results ; ++result_n ))
+       for (( result_n = 0 ; result_n < n_results ; ++result_n ))
        do  PrintReportLine
        done
        PrintHRule $rule_w
@@ -582,7 +594,7 @@ PrintReport() # (table_header_line synchronized_msg)
        synchronized_msg=$(echo "$synchronized_msg" | fold -s -w $wrap_w | tr ' ' "$JOIN_CHAR")
        for line in $synchronized_msg
        do  line=${line/%$JOIN_CHAR/}
-           [ ${#line} -gt $rule_w ] && rule_w=${#line}
+           [[ ${#line} -gt $rule_w ]] && rule_w=${#line}
        done
        rule_w=$(( $rule_w + $MARGINS_PAD_W ))
 

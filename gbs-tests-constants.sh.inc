@@ -169,10 +169,14 @@ EXAMPLES:
     | master         | (behind 1) | (even)    | origin/master         |
 
   # compare two arbitrary branches - local or remote
-  $ git-branch-status local-arbitrary-branch fork/arbitrary-branch
-    | local-arbitrary-branch | (even)     | (ahead 1) | fork/arbitrary-branch  |
-  $ git-branch-status fork/arbitrary-branch local-arbitrary-branch
-    | fork/arbitrary-branch  | (behind 1) | (even)    | local-arbitrary-branch |
+  $ git-branch-status a-branch another-branch
+    | a-branch            | (even)     | (even) | another-branch            |
+  $ git-branch-status a-branch a-remote/any-branch
+    | a-branch            | (even)     | (even) | a-remote/any-branch       |
+  $ git-branch-status a-remote/any-branch a-branch
+    | a-remote/any-branch | (behind 1) | (even) | a-branch                  |
+  $ git-branch-status a-remote/any-branch other-remote/other-branch
+    | a-remote/any-branch | (behind 1) | (even) | other-remote/other-branch |
 
   # show all branches - local and remote, regardless of state or relationship
   $ git-branch-status -a
@@ -195,10 +199,16 @@ EXAMPLES:
   $ git-branch-status --branch specific-branch
     | specific-branch | (even) | (ahead 2) | origin/specific-branch |
 
-  # show the timestamp of each HEAD
+  # show the timestamp of each out-of-sync local ref
   $ git-branch-status -d
   $ git-branch-status --dates
-    | 1999-12-31 master | (behind 2) | (even) | 2000-01-01 origin/master |
+    | 1999-12-30 master   | (even)     | (even) | 1999-12-30 origin/master  |
+    | 1999-12-31 devel    | (behind 2) | (even) | 2000-01-01 origin/devel   |
+
+  # show the timestamp of arbitrary branch refs
+  $ git-branch-status -d      a-branch another-branch
+  $ git-branch-status --dates a-branch another-branch
+    | 1999-12-31 a-branch | (even)     | (even) | 2000-01-01 another-branch |
 
   # print this usage message
   $ git-branch-status -h
