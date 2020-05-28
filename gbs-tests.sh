@@ -194,6 +194,11 @@ TestOptions()
   Actual=$(git-branch-status)
   AssertEqual
 
+  TestName="arbitrary branch"
+  Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${TRACKED_INSYNC_TEXT}")"
+  Actual=$(git-branch-status master)
+  AssertEqual
+
   TestName="arbitrary branches local<->local"
   Expected="$(printf "\n%s%s" "${LOCALDEV_LOCALWIP_TEXT}" "${ARBITRARYBRANCHES_LOCALDEV_LOCALWIP_TEXT}")"
   Actual=$(git-branch-status ${COMMON_BRANCH} ${WIP_BRANCH})

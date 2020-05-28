@@ -364,6 +364,18 @@ TEST_CONFIG()
   echo "USE_ANSI_COLOR=$USE_ANSI_COLOR"
 }
 
+TEST_ARGS()
+{
+  echo "is_all_mode=$is_all_mode"
+  echo "is_branch_mode=$is_branch_mode"
+  echo "is_cleanup_mode=$is_cleanup_mode"
+  echo "is_dates_mode=$is_dates_mode"
+  echo "is_local_mode=$is_local_mode"
+  echo "is_remotes_mode=$is_remotes_mode"
+  echo "is_verbose_mode=$is_verbose_mode"
+  echo "is_default_mode=$is_default_mode"
+}
+
 
 ## business ##
 
@@ -384,8 +396,6 @@ Init() # (cli_args)
   local branch_a=''
   local branch_b=''
 
-  (( $GBS_TEST_CFG )) && TEST_CONFIG && exit
-
   # parse CLI switches
   case "$1" in
        '-a'|'--all'     ) is_all_mode=1               ;;
@@ -398,7 +408,7 @@ Init() # (cli_args)
        *                ) is_default_mode=1           ;;
   esac
 
-  (( $GBS_TEST_CFG )) && TEST_CONFIG
+  (( $GBS_TEST_CFG )) && TEST_CONFIG && TEST_ARGS && exit
 
   # prepare state
   (( $is_all_mode     )) && show_all=1
