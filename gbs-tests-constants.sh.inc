@@ -91,6 +91,10 @@ EOF
 IFS= read -r -d '' UPSTRMASTER_PEERMASTER_TEXT <<'EOF'
   the-upstream/master <-> a-collaborator/master
 EOF
+IFS= read -r -d '' LOCALS_CLEANUP_TEXT <<'EOF'
+  locals <-> master
+EOF
+readonly ARG_REQUIRED_TEXT="fatal: This option requires an argument"
 IFS= read -r -d '' TRACKED_ALL_INSYNC_TEXT <<'EOF'
   ---------------------------------------------------------------
   | All tracking branches are synchronized with their upstreams |
@@ -145,6 +149,15 @@ IFS= read -r -d '' OUTOFSYNCH_DATES_TEXT <<'EOF'
   -------------------------------------------------------------------------------------
   | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
   -------------------------------------------------------------------------------------
+EOF
+IFS= read -r -d '' CLEANUP_TEXT <<'EOF'
+  --------------------------------------------------------------------------
+  | 2000-01-01 merged-into-master | (even) | (even)    | 2000-01-01 master |
+  | 2000-01-05 my-wip             | (even) | (ahead 3) | 2000-01-01 master |
+  | 2000-01-06 development        | (even) | (ahead 2) | 2000-01-01 master |
+  --------------------------------------------------------------------------
+	branch: merged-into-master is identical to: master
+	Delete merged-into-master? [y/N]
 EOF
 IFS= read -r -d '' HELP_TEXT <<'EOF'
 USAGE:

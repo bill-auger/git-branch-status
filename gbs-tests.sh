@@ -237,6 +237,20 @@ TestOptions()
   Actual=$(git-branch-status --branch ${WIP_BRANCH})
   AssertEqual
 
+  git branch merged-into-master master 2> /dev/null
+  TestName="cleanup insufficient args"
+  Expected="$(printf "%s" "${ARG_REQUIRED_TEXT}")"
+  Actual=$(git-branch-status --cleanup)
+  AssertEqual
+  TestName="cleanup"
+  Expected="$(printf "\n%s%s" "${LOCALS_CLEANUP_TEXT}" "${CLEANUP_TEXT}")"
+  Actual=$(yes | git-branch-status --cleanup master)
+  AssertEqual
+  TestName="cleanup deleted branch"
+  Expected=""
+  Actual=$(git branch -a | grep -E "^.* merged-into-master$")
+  AssertEqual
+
   TestName="dates"
   Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${OUTOFSYNCH_DATES_TEXT}")"
   Actual=$(git-branch-status --dates)
