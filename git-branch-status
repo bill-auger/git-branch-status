@@ -214,14 +214,14 @@ LocalW=0
 BehindW=0
 AheadW=0
 RemoteW=0
-declare -a LocalMsgs=()
-declare -a BehindMsgs=()
-declare -a AheadMsgs=()
-declare -a RemoteMsgs=()
-declare -a LocalColors=()
+declare -a BranchLeftTexts=()
+declare -a BehindTexts=()
+declare -a AheadTexts=()
+declare -a BranchRightTexts=()
+declare -a BranchLeftColors=()
 declare -a BehindColors=()
 declare -a AheadColors=()
-declare -a RemoteColors=()
+declare -a BranchRightColors=()
 
 
 ## helpers ##
@@ -479,10 +479,10 @@ CleanupReport()
 {
   local n_results
   local result_n
-  local local_msg
-  local behind_msg
-  local ahead_msg
-  local remote_msg
+  local branch_l_text
+  local behind_text
+  local ahead_text
+  local branch_r_text
   local compare_branch
   local n_behind
   local n_ahead
@@ -492,17 +492,17 @@ CleanupReport()
   # compare all local branches against $FILTER_BRANCH
   while read local upstream ; do GenerateReport ${local} ${FILTER_BRANCH} ; done < <(GetLocalRefs) ;
 
-  n_results=${#LocalMsgs[@]}
+  n_results=${#BranchLeftTexts[@]}
 
   for (( result_n = 0 ; result_n < n_results ; ++result_n ))
-  do  local_msg=$( echo ${LocalMsgs[ $result_n]}         | sed "$JOIN_REGEX")
-      behind_msg=$(echo ${BehindMsgs[$result_n]:$trim_w} | sed "$JOIN_REGEX")
-      ahead_msg=$( echo ${AheadMsgs[ $result_n]:$trim_w} | sed "$JOIN_REGEX")
-      remote_msg=$(echo ${RemoteMsgs[$result_n]}         | sed "$JOIN_REGEX")
-      compare_branch=$(sed -E "s|[0-9-]* +(.*)|\1|" <<<${local_msg} )
-      base_branch=$(   sed -E "s|[0-9-]* +(.*)|\1|" <<<${remote_msg})
-      is_behind=$( [[ "${behind_msg}" != "(even)" ]] && echo 1 || echo 0 )
-      is_ahead=$(  [[ "${ahead_msg}"  != "(even)" ]] && echo 1 || echo 0 )
+  do  branch_l_text=$(echo ${BranchLeftTexts[  $result_n ]}         | sed "$JOIN_REGEX")
+      behind_text=$(  echo ${BehindTexts[      $result_n ]:$trim_w} | sed "$JOIN_REGEX")
+      ahead_text=$(   echo ${AheadTexts[       $result_n ]:$trim_w} | sed "$JOIN_REGEX")
+      branch_r_text=$(echo ${BranchRightTexts[ $result_n ]}         | sed "$JOIN_REGEX")
+      compare_branch=$( sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_l_text}  )
+      base_branch=$(    sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_r_text}  )
+      is_behind=$( [[ "${behind_text}" != "(even)" ]] && echo 1 || echo 0 )
+      is_ahead=$(  [[ "${ahead_text}"  != "(even)" ]] && echo 1 || echo 0 )
 
       ! (( $is_behind + $is_ahead )) && compare_branches+=( $compare_branch )
   done
@@ -562,8 +562,8 @@ GenerateReport() # (base_branch compare_branch)
   local does_base_branch_exist=$(   DoesBranchExist $base_branch                )
   local does_compare_branch_exist=$(DoesBranchExist $compare_branch             )
   local is_tracked_branch=$(        IsTrackedBranch $base_branch $compare_branch)
-  local local_msg   ; local behind_msg   ; local ahead_msg   ; local remote_msg   ;
-  local local_color ; local behind_color ; local ahead_color ; local remote_color ;
+  local branch_l_text  ; local behind_text  ; local ahead_text  ; local branch_r_text  ;
+  local branch_l_color ; local behind_color ; local ahead_color ; local branch_r_color ;
 
   # filter out heads
   [[ "$base_branch" != 'HEAD' ]] || return
@@ -590,50 +590,50 @@ GenerateReport() # (base_branch compare_branch)
        (( $SHOW_ALL_SYNCED )) || (( $n_divergences > 0 )) || return
 
        # set data for branches with remote counterparts or arbitrary branches
-       local_color=$color
+       branch_l_color=$color
        if   (( $n_behind ))
-       then behind_msg="(behind$JOIN_CHAR$n_behind)" ; behind_color=$CBEHIND ;
-       else behind_msg="(even)"                      ; behind_color=$CEVEN   ;
+       then behind_text="(behind$JOIN_CHAR$n_behind)" ; behind_color=$CBEHIND ;
+       else behind_text="(even)"                      ; behind_color=$CEVEN   ;
        fi
        if   (( $n_ahead ))
-       then ahead_msg="(ahead$JOIN_CHAR$n_ahead)"    ; ahead_color=$CAHEAD   ;
-       else ahead_msg="(even)"                       ; ahead_color=$CEVEN    ;
+       then ahead_text="(ahead$JOIN_CHAR$n_ahead)"    ; ahead_color=$CAHEAD   ;
+       else ahead_text="(even)"                       ; ahead_color=$CEVEN    ;
        fi
-       remote_color=$color
+       branch_r_color=$color
   elif ((   $does_base_branch_exist )) && (( $SHOW_ALL_LOCAL ))
   then # dummy data for local branches with no upstream counterpart
-       local_color=$CDEFAULT
-       behind_color=$CDEFAULT    ; behind_msg="n/a"              ;
-       ahead_color=$CDEFAULT     ; ahead_msg="n/a"               ;
-       remote_color=$CNOUPSTREAM ; compare_branch="$NO_UPSTREAM" ;
+       branch_l_color=$CDEFAULT
+       behind_color=$CDEFAULT      ; behind_text="n/a"             ;
+       ahead_color=$CDEFAULT       ; ahead_text="n/a"              ;
+       branch_r_color=$CNOUPSTREAM ; compare_branch="$NO_UPSTREAM" ;
   elif (( ! $does_base_branch_exist )) && (( $SHOW_ALL_REMOTE ))
   then # dummy data for remote branches with no local counterpart
-       local_color=$CNOLOCAL     ; base_branch="$NO_LOCAL"       ;
-       behind_color=$CDEFAULT    ; behind_msg="n/a"              ;
-       ahead_color=$CDEFAULT     ; ahead_msg="n/a"               ;
-       remote_color=$CDEFAULT
+       branch_l_color=$CNOLOCAL    ; base_branch="$NO_LOCAL"       ;
+       behind_color=$CDEFAULT      ; behind_text="n/a"             ;
+       ahead_color=$CDEFAULT       ; ahead_text="n/a"              ;
+       branch_r_color=$CDEFAULT
   else return
   fi
-  local_msg="$( AppendCommitDate $base_branch       )"
-  behind_msg=$( echo $behind_msg | sed "$TRIM_REGEX")
-  ahead_msg=$(  echo $ahead_msg  | sed "$TRIM_REGEX")
-  remote_msg="$(AppendCommitDate $compare_branch    )"
+  branch_l_text="$(AppendCommitDate $base_branch        )"
+  behind_text=$(   echo $behind_text | sed "$TRIM_REGEX")
+  ahead_text=$(    echo $ahead_text  | sed "$TRIM_REGEX")
+  branch_r_text="$(AppendCommitDate $compare_branch     )"
 
   # populate lists
-  LocalMsgs=(    ${LocalMsgs[@]}    "$local_msg"    )
-  BehindMsgs=(   ${BehindMsgs[@]}   "$behind_msg"   )
-  AheadMsgs=(    ${AheadMsgs[@]}    "$ahead_msg"    )
-  RemoteMsgs=(   ${RemoteMsgs[@]}   "$remote_msg"   )
-  LocalColors=(  ${LocalColors[@]}  "$local_color"  )
-  BehindColors=( ${BehindColors[@]} "$behind_color" )
-  AheadColors=(  ${AheadColors[@]}  "$ahead_color"  )
-  RemoteColors=( ${RemoteColors[@]} "$remote_color" )
+  BranchLeftTexts=(   ${BranchLeftTexts[@]}   "$branch_l_text"  )
+  BehindTexts=(       ${BehindTexts[@]}       "$behind_text"    )
+  AheadTexts=(        ${AheadTexts[@]}        "$ahead_text"     )
+  BranchRightTexts=(  ${BranchRightTexts[@]}  "$branch_r_text"  )
+  BranchLeftColors=(  ${BranchLeftColors[@]}  "$branch_l_color" )
+  BehindColors=(      ${BehindColors[@]}      "$behind_color"   )
+  AheadColors=(       ${AheadColors[@]}       "$ahead_color"    )
+  BranchRightColors=( ${BranchRightColors[@]} "$branch_r_color" )
 
   # determine uniform column widths
-  if [[ ${#local_msg}  -gt $LocalW  ]] ; then LocalW=${#local_msg}   ; fi ;
-  if [[ ${#behind_msg} -gt $BehindW ]] ; then BehindW=${#behind_msg} ; fi ;
-  if [[ ${#ahead_msg}  -gt $AheadW  ]] ; then AheadW=${#ahead_msg}   ; fi ;
-  if [[ ${#remote_msg} -gt $RemoteW ]] ; then RemoteW=${#remote_msg} ; fi ;
+  if [[ ${#branch_l_text} -gt $LocalW  ]] ; then LocalW=${#branch_l_text}  ; fi ;
+  if [[ ${#behind_text}   -gt $BehindW ]] ; then BehindW=${#behind_text}   ; fi ;
+  if [[ ${#ahead_text}    -gt $AheadW  ]] ; then AheadW=${#ahead_text}     ; fi ;
+  if [[ ${#branch_r_text} -gt $RemoteW ]] ; then RemoteW=${#branch_r_text} ; fi ;
 }
 
 PrintReport() # (table_header_line synchronized_msg)
@@ -641,7 +641,7 @@ PrintReport() # (table_header_line synchronized_msg)
   local table_header_line=$1
   local synchronized_msg=$2
   local available_w=$(( $(CurrentTtyW) - $AheadW - $BehindW - $ALL_PADDING_W ))
-  local n_results=${#LocalMsgs[@]}
+  local n_results=${#BranchLeftTexts[@]}
   local are_all_in_sync
   local result_n
   (( $WereAnyCompared )) && !(( $WereAnyDivergences )) && are_all_in_sync=1 || are_all_in_sync=0
@@ -706,33 +706,33 @@ PrintReport() # (table_header_line synchronized_msg)
 PrintReportLine()
 {
   # select data
-  local local_msg=$( echo ${LocalMsgs[ $result_n]}         | sed "$JOIN_REGEX")
-  local behind_msg=$(echo ${BehindMsgs[$result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local ahead_msg=$( echo ${AheadMsgs[ $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local remote_msg=$(echo ${RemoteMsgs[$result_n]}         | sed "$JOIN_REGEX")
+  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]}    | sed "$JOIN_REGEX")
+  local behind_text=$(  echo ${BehindTexts[$result_n]:$trim_w} | sed "$JOIN_REGEX")
+  local ahead_text=$(   echo ${AheadTexts[ $result_n]:$trim_w} | sed "$JOIN_REGEX")
+  local branch_r_text=$(echo ${BranchRightTexts[$result_n]}    | sed "$JOIN_REGEX")
   local end_msg ; local star ;
-  local_msg="${local_msg:0:$LocalW}"
-  remote_msg="${remote_msg:0:$RemoteW}"
-  local local_color="${LocalColors[$result_n]}"
-  local behind_color="${BehindColors[$result_n]}"
-  local ahead_color="${AheadColors[$result_n]}"
-  local remote_color="${RemoteColors[$result_n]}"
+  branch_l_text="${branch_l_text:0:$LocalW}"
+  branch_r_text="${branch_r_text:0:$RemoteW}"
+  local branch_l_color="${BranchLeftColors[  $result_n ]}"
+  local behind_color="${BehindColors[        $result_n ]}"
+  local ahead_color="${AheadColors[          $result_n ]}"
+  local branch_r_color="${BranchRightColors[ $result_n ]}"
 
   # calculate column offsets
-  local local_offset=1
-  local behind_offset=$(( $LocalW  - ${#local_msg}  ))
-  local ahead_offset=$((  $BehindW - ${#behind_msg} ))
-  local remote_offset=$(( $AheadW  - ${#ahead_msg}  ))
-  local end_offset=$((    $RemoteW - ${#remote_msg} ))
+  local branch_l_offset=1
+  local behind_offset=$((   $LocalW  - ${#branch_l_text} ))
+  local ahead_offset=$((    $BehindW - ${#behind_text}   ))
+  local branch_r_offset=$(( $AheadW  - ${#ahead_text}    ))
+  local end_offset=$((      $RemoteW - ${#branch_r_text} ))
 
   # build output messages and display
-  (( $(IsCurrentBranch $local_msg) )) && star=$STAR || star=" "
-  local_msg="%$((  $local_offset  ))s$star$(echo -e $DELIM $local_color$local_msg$CEND  )"
-  behind_msg="%$(( $behind_offset ))s $(    echo -e $DELIM $behind_color$behind_msg$CEND)"
-  ahead_msg="%$((  $ahead_offset  ))s $(    echo -e $DELIM $ahead_color$ahead_msg$CEND  )"
-  remote_msg="%$(( $remote_offset ))s $(    echo -e $DELIM $remote_color$remote_msg$CEND)"
-  end_msg="%$((    $end_offset    ))s $DELIM"
-  printf "$local_msg$behind_msg$ahead_msg$remote_msg$end_msg\n"
+  (( $(IsCurrentBranch $branch_l_text) )) && star=$STAR || star=" "
+  branch_l_text="%$(( $branch_l_offset ))s$star$(echo -e $DELIM $branch_l_color$branch_l_text$CEND)"
+  behind_text="%$((   $behind_offset   ))s $(    echo -e $DELIM $behind_color$behind_text$CEND    )"
+  ahead_text="%$((    $ahead_offset    ))s $(    echo -e $DELIM $ahead_color$ahead_text$CEND      )"
+  branch_r_text="%$(( $branch_r_offset ))s $(    echo -e $DELIM $branch_l_color$branch_r_text$CEND)"
+  end_msg="%$((       $end_offset      ))s $DELIM"
+  printf "$branch_l_text$behind_text$ahead_text$branch_r_text$end_msg\n"
 }
 
 Reset()
@@ -743,14 +743,14 @@ Reset()
   BehindW=0
   AheadW=0
   RemoteW=0
-  LocalMsgs=()
-  BehindMsgs=()
-  AheadMsgs=()
-  RemoteMsgs=()
-  LocalColors=()
+  BranchLeftTexts=()
+  BehindTexts=()
+  AheadTexts=()
+  BranchRightTexts=()
+  BranchLeftColors=()
   BehindColors=()
   AheadColors=()
-  RemoteColors=()
+  BranchRightColors=()
 }
 
 
