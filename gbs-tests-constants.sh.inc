@@ -293,14 +293,14 @@ IFS= read -r -d '' LOCALS_DATES_TEXT <<'EOF'
 EOF
 IFS= read -r -d '' REMOTES_COLLAB_DATES_TEXT <<'EOF'
   --------------------------------------------------------------------------
-  | (no local)        | n/a    | n/a    | 2000-01-02 a-collaborator/devel  |
   | 2000-01-01 master | (even) | (even) | 2000-01-01 a-collaborator/master |
+  | (no local)        | n/a    | n/a    | 2000-01-02 a-collaborator/devel  |
   | 2000-01-03 my-wip | (even) | (even) | 2000-01-03 a-collaborator/my-wip |
   --------------------------------------------------------------------------
 EOF
 IFS= read -r -d '' REMOTES_ORIGIN_DATES_TEXT <<'EOF'
   -------------------------------------------------------------------------------------
-  | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
   | 2000-01-01 master      | (even) | (even)    | 2000-01-01 the-upstream/master      |
+  | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
   -------------------------------------------------------------------------------------
 EOF

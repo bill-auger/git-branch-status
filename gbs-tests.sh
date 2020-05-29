@@ -53,6 +53,7 @@ Init()
   export GBS_TEST_CFG=1
   export GBS_USE_ANSI_COLOR=0
   export GBS_FETCH_PERIOD=-1
+  export GBS_SHOW_AUTHOR_DATES=1
   export GBS_CFG_FILE=${TempDir}/${TEST_CFG_FILE}
 
   if   [[ -f $(git-branch-status | grep 'DEF_CFG_FILE=' | sed 's|[^:]*: ||') ]]
@@ -282,8 +283,6 @@ TestOptions()
                      "${LOCAL_UPSTREAM_TEXT}" "${REMOTES_ORIGIN_TEXT}"                                )"
   Actual=$(git-branch-status --remotes)
   AssertEqual
-
-  return # FIXME: dates sorting is not stable
 
   TestName="verbose"
   Expected="$(printf "\n%s%s\n%s%s%s\n%s%s"                                                           \

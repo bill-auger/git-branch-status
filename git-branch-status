@@ -138,18 +138,22 @@ readonly DEF_CFG_FILE="${THIS_DIR}"/gbs-config.sh.inc
 readonly DEF_FETCH_PERIOD='-1'
 readonly DEF_LAST_FETCH_FILE=~/.GBS_LAST_FETCH
 readonly DEF_USE_ANSI_COLOR='1'
-readonly CFG_FILE=$(        ( [[ "$GBS_CFG_FILE" && -f "$GBS_CFG_FILE" ]] && echo -n "$GBS_CFG_FILE"        ) || \
-                            ( [[ "$DEF_CFG_FILE" && -f "$DEF_CFG_FILE" ]] && echo -n "$DEF_CFG_FILE"        )    )
+readonly DEF_SHOW_AUTHOR_DATES='0'
+readonly CFG_FILE=$(          ( [[ "$GBS_CFG_FILE" && -f "$GBS_CFG_FILE" ]] && echo -n "$GBS_CFG_FILE"          ) || \
+                              ( [[ "$DEF_CFG_FILE" && -f "$DEF_CFG_FILE" ]] && echo -n "$DEF_CFG_FILE"          )    )
 source "$CFG_FILE" 2> /dev/null
-readonly FETCH_PERIOD=$(    ( [[ "$GBS_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$GBS_FETCH_PERIOD"    ) || \
-                            ( [[ "$CFG_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$CFG_FETCH_PERIOD"    ) || \
-                                                                             echo -n "$DEF_FETCH_PERIOD"         )
-readonly LAST_FETCH_FILE=$( ( touch "$GBS_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$GBS_LAST_FETCH_FILE" ) || \
-                            ( touch "$CFG_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$CFG_LAST_FETCH_FILE" ) || \
-                                                                             echo -n "$DEF_LAST_FETCH_FILE"      )
-readonly USE_ANSI_COLOR=$(  ( [[ "$GBS_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$GBS_USE_ANSI_COLOR"  ) || \
-                            ( [[ "$CFG_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$CFG_USE_ANSI_COLOR"  ) || \
-                                                                             echo -n "$DEF_USE_ANSI_COLOR"       )
+readonly FETCH_PERIOD=$(      ( [[ "$GBS_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$GBS_FETCH_PERIOD"      ) || \
+                              ( [[ "$CFG_FETCH_PERIOD" =~ ^-?[0-9]+$     ]] && echo -n "$CFG_FETCH_PERIOD"      ) || \
+                                                                               echo -n "$DEF_FETCH_PERIOD"           )
+readonly LAST_FETCH_FILE=$(   ( touch "$GBS_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$GBS_LAST_FETCH_FILE"   ) || \
+                              ( touch "$CFG_LAST_FETCH_FILE" 2> /dev/null   && echo -n "$CFG_LAST_FETCH_FILE"   ) || \
+                                                                               echo -n "$DEF_LAST_FETCH_FILE"        )
+readonly USE_ANSI_COLOR=$(    ( [[ "$GBS_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$GBS_USE_ANSI_COLOR"    ) || \
+                              ( [[ "$CFG_USE_ANSI_COLOR" =~ ^[01]$       ]] && echo -n "$CFG_USE_ANSI_COLOR"    ) || \
+                                                                               echo -n "$DEF_USE_ANSI_COLOR"         )
+readonly SHOW_AUTHOR_DATES=$( ( [[ "$GBS_SHOW_AUTHOR_DATES" =~ ^[01]$    ]] && echo -n "$GBS_SHOW_AUTHOR_DATES" ) || \
+                              ( [[ "$CFG_SHOW_AUTHOR_DATES" =~ ^[01]$    ]] && echo -n "$CFG_SHOW_AUTHOR_DATES" ) || \
+                                                                               echo -n "$DEF_SHOW_AUTHOR_DATES"      )
 
 
 ## constants ##
@@ -246,7 +250,8 @@ GetRefs() # (refs_dir)
 {
   local refs_dir=$1
   local fmt='%(refname:short) %(upstream:short)'
-  local sort=$( (( $SHOW_DATES )) && echo '--sort=authordate' )
+  local sort_key=$( (( $SHOW_AUTHOR_DATES )) && echo 'authordate' || echo 'committerdate' )
+  local sort=$(     (( $SHOW_DATES        )) && echo "--sort=$sort_key"                   )
 
   git for-each-ref --format="$fmt" $sort $refs_dir 2> /dev/null
 }
@@ -319,13 +324,16 @@ DoesBranchExist() # (branch_name)
 
 AppendCommitDate() # (ref)
 {
-  local commit=$1
-  local author_date=$(git log -n 1 --format=format:"%ai" $commit 2> /dev/null)
+  local ref=$1
+  local date_fmt
   local date=''
 
-  (($SHOW_DATES)) && [[ "$author_date" ]] && date="${author_date:0:10}$JOIN_CHAR"
+  if   (( ${SHOW_DATES} ))
+  then date_fmt=$( (( ${SHOW_AUTHOR_DATES} )) && echo '%as' || echo '%cs' )
+       date=$(git log -n 1 --format=format:"$date_fmt" $ref 2> /dev/null)
+  fi
 
-  echo $date$commit
+  [[ "$date" ]] && echo ${date}${JOIN_CHAR}${ref} || echo $ref
 }
 
 CurrentTtyW()
