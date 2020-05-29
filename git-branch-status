@@ -162,7 +162,8 @@ readonly INNER_PADDING_W=13 # '| ' + ' | ' + ' | ' + ' | ' + ' |'
 readonly MARGIN_PAD_W=2
 readonly MARGINS_PAD_W=$(( $MARGIN_PAD_W * 2 ))
 readonly ALL_PADDING_W=$(( $INNER_PADDING_W + $MARGINS_PAD_W ))
-readonly MAX_DIVERGENCE_W=12 # e.g. "(behind 999)"
+readonly MAX_DIVERGENCE=999
+readonly MAX_DIVERGENCE_W=$(( 9 + ${#MAX_DIVERGENCE} )) # e.g. "(behind 999)"
 readonly MIN_TTY_W=60 # ASSERT: (0 < (ALL_PADDING_W + (MAX_DIVERGENCE_W * 2)) <= MIN_TTY_W)
 readonly MARGIN_PAD=$(printf "%$(( $MARGIN_PAD_W ))s")
 readonly CWHITE=$(  (( $USE_ANSI_COLOR )) && echo '\033[0;37m' )
@@ -181,7 +182,6 @@ readonly CNOLOCAL=$CRED
 readonly HRULE_CHAR='-'
 readonly JOIN_CHAR='~'
 readonly JOIN_REGEX="s/$JOIN_CHAR/ /g"
-readonly TRIM_REGEX="s/.*\(.\{$MAX_DIVERGENCE_W\}\)$/\1/"
 readonly STAR='*'
 readonly DELIM='|'
 readonly TTY_W_MSG="TTY must be wider than $MIN_TTY_W chars"
@@ -591,22 +591,23 @@ GenerateReport() # (base_branch compare_branch)
        local n_ahead=$( echo $status | tr " " "\n" | grep -c '^<')
        local n_divergences=$(( $n_behind + $n_ahead ))
        local color=$( (($is_tracked_branch)) && echo $CTRACKING || echo $CDEFAULT )
+       local join_char=${JOIN_CHAR}
+       (( $n_behind > $MAX_DIVERGENCE          )) && n_behind=$MAX_DIVERGENCE join_char='>'
+       (( $n_ahead  > $MAX_DIVERGENCE          )) && n_ahead=$MAX_DIVERGENCE  join_char='>'
        (( $WereAnyDivergences + $n_divergences )) && WereAnyDivergences=1
-       (( ! $was_error )) && WereAnyCompared=1 || return
+       (( ! $was_error                         )) && WereAnyCompared=1 || return
 
        # filter branches by status
        (( $SHOW_ALL_SYNCED )) || (( $n_divergences > 0 )) || return
 
        # set data for branches with remote counterparts or arbitrary branches
+       behind_text=$( ( (( $n_behind )) && echo "(behind${join_char}${n_behind})" ) || \
+                                           echo "(even)"                               )
+       ahead_text=$(  ( (( $n_ahead  )) && echo "(ahead${join_char}${n_ahead})"   ) || \
+                                           echo "(even)"                               )
        branch_l_color=$color
-       if   (( $n_behind ))
-       then behind_text="(behind$JOIN_CHAR$n_behind)" ; behind_color=$CBEHIND ;
-       else behind_text="(even)"                      ; behind_color=$CEVEN   ;
-       fi
-       if   (( $n_ahead ))
-       then ahead_text="(ahead$JOIN_CHAR$n_ahead)"    ; ahead_color=$CAHEAD   ;
-       else ahead_text="(even)"                       ; ahead_color=$CEVEN    ;
-       fi
+       behind_color=$( (( $n_behind )) && echo $CBEHIND || echo $CEVEN )
+       ahead_color=$(  (( $n_ahead  )) && echo $CAHEAD  || echo $CEVEN )
        branch_r_color=$color
   elif ((   $does_base_branch_exist )) && (( $SHOW_ALL_LOCAL ))
   then # dummy data for local branches with no upstream counterpart
@@ -622,10 +623,8 @@ GenerateReport() # (base_branch compare_branch)
        branch_r_color=$CDEFAULT
   else return
   fi
-  branch_l_text="$(AppendCommitDate $base_branch        )"
-  behind_text=$(   echo $behind_text | sed "$TRIM_REGEX")
-  ahead_text=$(    echo $ahead_text  | sed "$TRIM_REGEX")
-  branch_r_text="$(AppendCommitDate $compare_branch     )"
+  branch_l_text="$(AppendCommitDate $base_branch   )"
+  branch_r_text="$(AppendCommitDate $compare_branch)"
 
   # populate lists
   BranchLeftTexts=(   ${BranchLeftTexts[@]}   "$branch_l_text"  )
