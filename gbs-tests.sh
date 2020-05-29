@@ -293,10 +293,33 @@ TestOptions()
   AssertEqual
 }
 
+TestPresentation()
+{
+  STATE "running presentation tests"
+
+  export GBS_TEST_CFG=0
+
+  local commit_n
+  (git checkout ${COMMON_BRANCH} ; git reset --hard ${UPSTREAM_NAME}/${COMMON_BRANCH}) &> /dev/null
+  for (( commit_n = 0 ; commit_n <= 999 ; ++commit_n )) # MAX_DIVERGENCE
+  do  echo 'text' >> ${TRACKED_FILE} ; git commit -m 'a-change' ${TRACKED_FILE} > /dev/null
+  done
+  TestName="n_commits over the cap"
+  Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${NCOMMITS_OVERCAP_TEXT}")"
+  Actual=$(git-branch-status)
+  AssertEqual
+  git reset --hard HEAD^ > /dev/null
+  TestName="n_commits under the cap"
+  Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${NCOMMITS_UNDERCAP_TEXT}")"
+  Actual=$(git-branch-status)
+  AssertEqual
+}
+
 RunTests()
 {
   TestConfig                     && \
   TestOptions                    && \
+  TestPresentation               && \
   STATE "(: all tests passed :)"
 }
 

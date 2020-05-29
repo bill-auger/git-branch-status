@@ -304,3 +304,13 @@ IFS= read -r -d '' REMOTES_ORIGIN_DATES_TEXT <<'EOF'
   | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
   -------------------------------------------------------------------------------------
 EOF
+IFS= read -r -d '' NCOMMITS_OVERCAP_TEXT <<'EOF'
+  -----------------------------------------------------------------
+ *| development | (even) | (ahead>999) | the-upstream/development |
+  -----------------------------------------------------------------
+EOF
+IFS= read -r -d '' NCOMMITS_UNDERCAP_TEXT <<'EOF'
+  -----------------------------------------------------------------
+ *| development | (even) | (ahead 999) | the-upstream/development |
+  -----------------------------------------------------------------
+EOF
