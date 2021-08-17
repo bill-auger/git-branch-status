@@ -291,8 +291,8 @@ GetUpstreamBranch() # (local_branch)
 IsCurrentBranch() # (branch_name)
 {
   local branch=$1
-  local this_branch=$(AppendCommitDate $branch)
-  local current_branch=$(AppendCommitDate $(GetCurrentBranch))
+  local this_branch=$(   AppendMetadata $branch            )
+  local current_branch=$(AppendMetadata $(GetCurrentBranch))
 
   [[ "$this_branch" == "$current_branch" ]] && echo 1 || echo 0
 }
@@ -322,18 +322,26 @@ DoesBranchExist() # (branch_name)
   [[ "$is_known_branch" ]] && echo 1 || echo 0
 }
 
-AppendCommitDate() # (ref)
+GitMeta() # (ref fmt)
+{
+  git log -n 1 --format=format:"$2" $1 2> /dev/null | head -n 1 | tr '\t ' "${JOIN_CHAR}"
+}
+
+AppendMetadata() # (ref)
 {
   local ref=$1
-  local date_fmt
-  local date=''
+  local date_fmt=$( (( ${SHOW_AUTHOR_DATES} )) && echo '%as' || echo '%cs' )
+  local log_fmt='%B'
+  local date=$(GitMeta $ref "$date_fmt")
+  local log="$(GitMeta $ref "$log_fmt" )"
 
-  if   (( ${SHOW_DATES} ))
-  then date_fmt=$( (( ${SHOW_AUTHOR_DATES} )) && echo '%as' || echo '%cs' )
-       date=$(git log -n 1 --format=format:"$date_fmt" $ref 2> /dev/null)
+  if   (( ${SHOW_LOGS}  ))
+  then (( ${SHOW_DATES} )) && ref="$date${JOIN_CHAR}$ref"
+       echo "${ref}:${JOIN_CHAR}${log}"
+  elif (( ${SHOW_DATES} ))
+  then echo "${date}${JOIN_CHAR}${ref}"
+  else echo $ref
   fi
-
-  [[ "$date" ]] && echo ${date}${JOIN_CHAR}${ref} || echo $ref
 }
 
 CurrentTtyW()
@@ -404,6 +412,7 @@ Init() # (cli_args)
   local is_cleanup_mode=0
   local is_dates_mode=0
   local is_local_mode=0
+  local is_logs_mode=0
   local is_remotes_mode=0
   local is_verbose_mode=0
   local is_default_mode=0
@@ -423,6 +432,7 @@ Init() # (cli_args)
        '-d'|'--dates'   ) is_dates_mode=1             ;;
        '-h'|'--help'    ) Exit "$USAGE" $EXIT_SUCCESS ;;
        '-l'|'--local'   ) is_local_mode=1             ;;
+       '-L'|'--logs'    ) is_logs_mode=1              ;;
        '-r'|'--remotes' ) is_remotes_mode=1           ;;
        '-v'|'--verbose' ) is_verbose_mode=1           ;;
        *                ) is_default_mode=1           ;;
@@ -436,8 +446,9 @@ Init() # (cli_args)
   (( $is_cleanup_mode )) && branch_a="$2"     show_all_synced=1 show_dates=1
   (( $is_dates_mode   )) && branch_a=$2       branch_b=$3       show_dates=1
   (( $is_local_mode   )) && show_all_local=1  show_all_synced=1
+  (( $is_logs_mode    )) && branch_a=$2       branch_b=$3       show_logs=1
   (( $is_remotes_mode )) && show_all_remote=1 show_all_synced=1
-  (( $is_verbose_mode )) && show_all=1        show_dates=1
+  (( $is_verbose_mode )) && show_all=1        show_dates=1      show_logs=1
   (( $is_default_mode )) && branch_a=$1       branch_b=$2
   [[ "$branch_a"      ]] && show_all_local=1 # force "no upstream" message for non-tracking branches
 
@@ -448,10 +459,11 @@ Init() # (cli_args)
   (( $(AssertHasCommits         ) ))                         || Exit "$NO_COMMITS_MSG"
   (( $(DoesBranchExist $branch_a) )) || [[ -z "$branch_a" ]] || Exit "$INVALID_BRANCH_MSG '$branch_a'"
   (( $(DoesBranchExist $branch_b) )) || [[ -z "$branch_b" ]] || Exit "$INVALID_BRANCH_MSG '$branch_b'"
-  (( ! $is_cleanup_mode           )) || [[ "$branch_a"    ]] || Exit "$ARG_REQUIRED_MSG"
+  (( ! $is_cleanup_mode           )) || [[ -n "$branch_a" ]] || Exit "$ARG_REQUIRED_MSG"
 
   readonly IS_CLEANUP_MODE=$is_cleanup_mode
   readonly SHOW_DATES=$show_dates
+  readonly SHOW_LOGS=$show_logs
   readonly SHOW_ALL_SYNCED=$(( $show_all + $show_all_synced )) # show branches that are synchronized with their counterparts
   readonly SHOW_ALL_LOCAL=$((  $show_all + $show_all_local  )) # show local branches that are not tracking any upstream
   readonly SHOW_ALL_REMOTE=$(( $show_all + $show_all_remote )) # show all remote branches
@@ -623,8 +635,8 @@ GenerateReport() # (base_branch compare_branch)
        branch_r_color=$CDEFAULT
   else return
   fi
-  branch_l_text="$(AppendCommitDate $base_branch   )"
-  branch_r_text="$(AppendCommitDate $compare_branch)"
+  branch_l_text="$(AppendMetadata $base_branch   )"
+  branch_r_text="$(AppendMetadata $compare_branch)"
 
   # populate lists
   BranchLeftTexts=(   ${BranchLeftTexts[@]}   "$branch_l_text"  )
