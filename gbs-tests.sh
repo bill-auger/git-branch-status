@@ -2,7 +2,7 @@
 
 #  gbs-tests.sh - test suite for git-branch-status
 #
-#  Copyright 2020 bill-auger <https://github.com/bill-auger>
+#  Copyright 2020-2021,2023 bill-auger <bill-auger@programmer.net>
 #
 #  git-branch-status is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License version 3
@@ -66,8 +66,8 @@ Init()
   echo "readonly CFG_USE_ANSI_COLOR=1"                          >> ${GBS_CFG_FILE}
 
   LOG "creating: '${UPSTREAM_NAME}'"
-  cd ${TempDir} ; mkdir ${UPSTREAM_NAME} ; cd ${UPSTREAM_NAME}
-  git init                                                                  > /dev/null
+  cd ${TempDir} ; mkdir ${UPSTREAM_NAME} ; cd ${UPSTREAM_NAME} ;
+  git init -b ${MASTER_BRANCH}                                              > /dev/null
   touch ${TRACKED_FILE} ; git add ${TRACKED_FILE} ;
   echo 'some text' > ${TRACKED_FILE}
   git commit -m 'upstream-initial' --date 2000-01-01 ${TRACKED_FILE}        > /dev/null
@@ -75,7 +75,7 @@ Init()
   git checkout -b ${COMMON_BRANCH}                                         2> /dev/null
   echo 'diff text' > ${TRACKED_FILE}
   git commit -m 'upstream-change'  --date 2000-01-02 ${TRACKED_FILE}        > /dev/null
-  git checkout master                                                      2> /dev/null
+  git checkout ${MASTER_BRANCH}                                            2> /dev/null
 
   LOG "cloning: '${UPSTREAM_NAME}' as: '${PEER_NAME}'"
   cd ${TempDir}
@@ -197,7 +197,7 @@ TestOptions()
 
   TestName="arbitrary branch"
   Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${TRACKED_INSYNC_TEXT}")"
-  Actual=$(git-branch-status master)
+  Actual=$(git-branch-status ${MASTER_BRANCH})
   AssertEqual
 
   TestName="arbitrary branches local<->local"
@@ -217,7 +217,7 @@ TestOptions()
 
   TestName="arbitrary branches remote<->remote"
   Expected="$(printf "\n%s%s" "${UPSTRMASTER_PEERMASTER_TEXT}" "${UNTRACKED_INSYNC_TEXT}")"
-  Actual=$(git-branch-status ${UPSTREAM_NAME}/master ${PEER_NAME}/master)
+  Actual=$(git-branch-status ${UPSTREAM_NAME}/${MASTER_BRANCH} ${PEER_NAME}/${MASTER_BRANCH})
   AssertEqual
 
   TestName="all branches"
@@ -238,14 +238,15 @@ TestOptions()
   Actual=$(git-branch-status --branch ${WIP_BRANCH})
   AssertEqual
 
-  git branch merged-into-master master 2> /dev/null
+  git branch merged-into-master ${MASTER_BRANCH} 2> /dev/null
+
   TestName="cleanup insufficient args"
   Expected="$(printf "%s" "${ARG_REQUIRED_TEXT}")"
   Actual=$(git-branch-status --cleanup)
   AssertEqual
   TestName="cleanup"
   Expected="$(printf "\n%s%s" "${LOCALS_CLEANUP_TEXT}" "${CLEANUP_TEXT}")"
-  Actual=$(yes | git-branch-status --cleanup master)
+  Actual=$(yes | git-branch-status --cleanup ${MASTER_BRANCH})
   AssertEqual
   TestName="cleanup deleted branch"
   Expected=""
@@ -301,6 +302,7 @@ TestPresentation()
 
   local commit_n
   (git checkout ${COMMON_BRANCH} ; git reset --hard ${UPSTREAM_NAME}/${COMMON_BRANCH}) &> /dev/null
+
   for (( commit_n = 0 ; commit_n <= 999 ; ++commit_n )) # MAX_DIVERGENCE
   do  echo 'text' >> ${TRACKED_FILE} ; git commit -m 'a-change' ${TRACKED_FILE} > /dev/null
   done
@@ -308,7 +310,9 @@ TestPresentation()
   Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${NCOMMITS_OVERCAP_TEXT}")"
   Actual=$(git-branch-status)
   AssertEqual
+
   git reset --hard HEAD^ > /dev/null
+
   TestName="n_commits under the cap"
   Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${NCOMMITS_UNDERCAP_TEXT}")"
   Actual=$(git-branch-status)
