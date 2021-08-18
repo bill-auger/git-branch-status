@@ -517,10 +517,10 @@ CleanupReport()
   n_results=${#BranchLeftTexts[@]}
 
   for (( result_n = 0 ; result_n < n_results ; ++result_n ))
-  do  branch_l_text=$(echo ${BranchLeftTexts[  $result_n ]}         | sed "$JOIN_REGEX")
-      behind_text=$(  echo ${BehindTexts[      $result_n ]:$trim_w} | sed "$JOIN_REGEX")
-      ahead_text=$(   echo ${AheadTexts[       $result_n ]:$trim_w} | sed "$JOIN_REGEX")
-      branch_r_text=$(echo ${BranchRightTexts[ $result_n ]}         | sed "$JOIN_REGEX")
+  do  branch_l_text=$(echo ${BranchLeftTexts[  $result_n ]} | sed "$JOIN_REGEX")
+      behind_text=$(  echo ${BehindTexts[      $result_n ]} | sed "$JOIN_REGEX")
+      ahead_text=$(   echo ${AheadTexts[       $result_n ]} | sed "$JOIN_REGEX")
+      branch_r_text=$(echo ${BranchRightTexts[ $result_n ]} | sed "$JOIN_REGEX")
       compare_branch=$( sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_l_text}  )
       is_behind=$( [[ "${behind_text}" != "(even)" ]] && echo 1 || echo 0 )
       is_ahead=$(  [[ "${ahead_text}"  != "(even)" ]] && echo 1 || echo 0 )
@@ -733,11 +733,11 @@ PrintReport() # (table_header_line synchronized_msg)
 PrintReportLine()
 {
   # select data
-  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]}         | sed "$JOIN_REGEX")
-  local behind_text=$(  echo ${BehindTexts[     $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local tracking_text=$(echo ${TrackingTexts[   $result_n]}         | sed "$JOIN_REGEX")
-  local ahead_text=$(   echo ${AheadTexts[      $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local branch_r_text=$(echo ${BranchRightTexts[$result_n]}         | sed "$JOIN_REGEX")
+  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]} | sed "$JOIN_REGEX")
+  local behind_text=$(  echo ${BehindTexts[     $result_n]} | sed "$JOIN_REGEX")
+  local tracking_text=$(echo ${TrackingTexts[   $result_n]} | sed "$JOIN_REGEX")
+  local ahead_text=$(   echo ${AheadTexts[      $result_n]} | sed "$JOIN_REGEX")
+  local branch_r_text=$(echo ${BranchRightTexts[$result_n]} | sed "$JOIN_REGEX")
   local star delim end_msg
   branch_l_text="${branch_l_text:0:$LocalW}"
   branch_r_text="${branch_r_text:0:$RemoteW}"
