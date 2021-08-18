@@ -337,19 +337,14 @@ GitMeta() # (ref fmt)
 
 AppendMetadata() # (ref)
 {
-  local ref=$1
+  local ref="$1"
   local date_fmt=$( (( ${SHOW_AUTHOR_DATES} )) && echo '%as' || echo '%cs' )
   local log_fmt='%B'
   local date=$(GitMeta $ref "$date_fmt")
   local log="$(GitMeta $ref "$log_fmt" )"
 
-  if   (( ${SHOW_LOGS}  ))
-  then (( ${SHOW_DATES} )) && ref="$date${JOIN_CHAR}$ref"
-       echo "${ref}:${JOIN_CHAR}${log}"
-  elif (( ${SHOW_DATES} ))
-  then echo "${date}${JOIN_CHAR}${ref}"
-  else echo $ref
-  fi
+  (( SHOW_DATES )) && echo -n "${date}${JOIN_CHAR}"
+  (( SHOW_LOGS  )) && echo "${ref}:${JOIN_CHAR}${log}" || echo "${ref}"
 }
 
 CurrentTtyW()
@@ -512,9 +507,8 @@ CleanupReport()
   local ahead_text
   local branch_r_text
   local compare_branch
-  local n_behind
-  local n_ahead
-  local base_branch
+  local is_behind
+  local is_ahead
   local compare_branches=()
 
   # compare all local branches against $FILTER_BRANCH
@@ -528,7 +522,6 @@ CleanupReport()
       ahead_text=$(   echo ${AheadTexts[       $result_n ]:$trim_w} | sed "$JOIN_REGEX")
       branch_r_text=$(echo ${BranchRightTexts[ $result_n ]}         | sed "$JOIN_REGEX")
       compare_branch=$( sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_l_text}  )
-      base_branch=$(    sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_r_text}  )
       is_behind=$( [[ "${behind_text}" != "(even)" ]] && echo 1 || echo 0 )
       is_ahead=$(  [[ "${ahead_text}"  != "(even)" ]] && echo 1 || echo 0 )
 
@@ -648,7 +641,7 @@ GenerateReport() # (base_branch compare_branch)
   fi
   branch_l_text="$(AppendMetadata $base_branch   )"
   branch_r_text="$(AppendMetadata $compare_branch)"
-  tracking_text=$(  (( is_tracking )) && echo -$DELIM-   || echo $JOIN_CHAR$DELIM$JOIN_CHAR )
+  tracking_text=$(  (( is_tracking )) && echo "-$DELIM-" || echo $JOIN_CHAR$DELIM$JOIN_CHAR )
   tracking_color=$( (( is_tracking )) && echo $CTRACKING || echo $CDEFAULT                  )
 
   # populate lists
@@ -780,16 +773,11 @@ Reset()
   BehindW=0
   AheadW=0
   RemoteW=0
-  BranchLeftTexts=()
-  BehindTexts=()
-  TrackingTexts=()
-  AheadTexts=()
-  BranchRightTexts=()
-  BranchLeftColors=()
-  BehindColors=()
-  TrackingColors=()
-  AheadColors=()
-  BranchRightColors=()
+  BranchLeftTexts=()  ; BranchLeftColors=()  ;
+  BehindTexts=()      ; BehindColors=()      ;
+  TrackingTexts=()    ; TrackingColors=()    ;
+  AheadTexts=()       ; AheadColors=()       ;
+  BranchRightTexts=() ; BranchRightColors=() ;
 }
 
 
