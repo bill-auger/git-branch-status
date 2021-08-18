@@ -179,11 +179,14 @@ readonly CBEHIND=$CRED
 readonly CEVEN=$CGREEN
 readonly CNOUPSTREAM=$CRED
 readonly CNOLOCAL=$CRED
+readonly CNODIFF=$CGREEN
 readonly HRULE_CHAR='-'
 readonly JOIN_CHAR='~'
 readonly JOIN_REGEX="s/$JOIN_CHAR/ /g"
 readonly STAR='*'
 readonly DELIM='|'
+readonly TRACKED_DELIM=-$DELIM-
+readonly UNTRACKED_DELIM=$JOIN_CHAR$DELIM$JOIN_CHAR
 readonly TTY_W_MSG="TTY must be wider than $MIN_TTY_W chars"
 readonly NOT_REPO_MSG="Not a git repo"
 readonly BARE_REPO_MSG="Bare repo"
@@ -220,10 +223,12 @@ AheadW=0
 RemoteW=0
 declare -a BranchLeftTexts=()
 declare -a BehindTexts=()
+declare -a TrackingTexts=()
 declare -a AheadTexts=()
 declare -a BranchRightTexts=()
 declare -a BranchLeftColors=()
 declare -a BehindColors=()
+declare -a TrackingColors=()
 declare -a AheadColors=()
 declare -a BranchRightColors=()
 
@@ -320,6 +325,11 @@ DoesBranchExist() # (branch_name)
   local is_known_branch=$(git branch -a | grep -E "^.* (remotes/)?$branch$")
 
   [[ "$is_known_branch" ]] && echo 1 || echo 0
+}
+
+IsNoDiff() # (base_branch compare_branch)
+{
+  git diff --exit-code $1 $2 &> /dev/null ; echo $(( ! $? )) ;
 }
 
 GitMeta() # (ref fmt)
@@ -577,9 +587,11 @@ GenerateReport() # (base_branch compare_branch)
   local compare_branch=$2
   local does_base_branch_exist=$(   DoesBranchExist $base_branch                )
   local does_compare_branch_exist=$(DoesBranchExist $compare_branch             )
-  local is_tracked_branch=$(        IsTrackedBranch $base_branch $compare_branch)
-  local branch_l_text  ; local behind_text  ; local ahead_text  ; local branch_r_text  ;
-  local branch_l_color ; local behind_color ; local ahead_color ; local branch_r_color ;
+  local is_tracking=$(              IsTrackedBranch $base_branch $compare_branch)
+  local is_nodiff
+  local branch_l_text  ; local behind_text  ; local tracking_text  ; local ahead_text  ; local branch_r_text  ;
+  local branch_l_color ; local behind_color ; local tracking_color ; local ahead_color ; local branch_r_color ;
+
 
   # filter out heads
   [[ "$base_branch" != 'HEAD' ]] || return
@@ -598,7 +610,6 @@ GenerateReport() # (base_branch compare_branch)
        local n_behind=$(echo $status | tr " " "\n" | grep -c '^>')
        local n_ahead=$( echo $status | tr " " "\n" | grep -c '^<')
        local n_divergences=$(( $n_behind + $n_ahead ))
-       local color=$( (($is_tracked_branch)) && echo $CTRACKING || echo $CDEFAULT )
        local join_char=${JOIN_CHAR}
        (( $n_behind > $MAX_DIVERGENCE          )) && n_behind=$MAX_DIVERGENCE join_char='>'
        (( $n_ahead  > $MAX_DIVERGENCE          )) && n_ahead=$MAX_DIVERGENCE  join_char='>'
@@ -609,14 +620,14 @@ GenerateReport() # (base_branch compare_branch)
        (( $SHOW_ALL_SYNCED )) || (( $n_divergences > 0 )) || return
 
        # set data for branches with remote counterparts or arbitrary branches
-       behind_text=$( ( (( $n_behind )) && echo "(behind${join_char}${n_behind})" ) || \
-                                           echo "(even)"                               )
-       ahead_text=$(  ( (( $n_ahead  )) && echo "(ahead${join_char}${n_ahead})"   ) || \
-                                           echo "(even)"                               )
-       branch_l_color=$color
-       behind_color=$( (( $n_behind )) && echo $CBEHIND || echo $CEVEN )
-       ahead_color=$(  (( $n_ahead  )) && echo $CAHEAD  || echo $CEVEN )
-       branch_r_color=$color
+       is_nodiff=$(git diff --exit-code $base_branch $compare_branch &> /dev/null ; echo $((!$?)) ; )
+       behind_text=$(      (( $n_behind   )) && echo "(behind${join_char}${n_behind})" || echo "(even)" )
+       ahead_text=$(       (( $n_ahead    )) && echo "(ahead${join_char}${n_ahead})"   || echo "(even)" )
+       branch_l_color=$( ( (( is_nodiff   )) && echo $CNODIFF   ) || \
+                         ( (( is_tracking )) && echo $CTRACKING ) || echo $CDEFAULT )
+       behind_color=$(     (( $n_behind   )) && echo $CBEHIND     || echo $CEVEN    )
+       ahead_color=$(      (( $n_ahead    )) && echo $CAHEAD      || echo $CEVEN    )
+       branch_r_color=$branch_l_color
   elif ((   $does_base_branch_exist )) && (( $SHOW_ALL_LOCAL ))
   then # dummy data for local branches with no upstream counterpart
        branch_l_color=$CDEFAULT
@@ -633,14 +644,18 @@ GenerateReport() # (base_branch compare_branch)
   fi
   branch_l_text="$(AppendMetadata $base_branch   )"
   branch_r_text="$(AppendMetadata $compare_branch)"
+  tracking_text=$(  (( is_tracking )) && echo $TRACKED_DELIM || echo $UNTRACKED_DELIM )
+  tracking_color=$( (( is_tracking )) && echo $CTRACKING || echo $CDEFAULT                  )
 
   # populate lists
   BranchLeftTexts=(   ${BranchLeftTexts[@]}   "$branch_l_text"  )
   BehindTexts=(       ${BehindTexts[@]}       "$behind_text"    )
+  TrackingTexts=(     ${TrackingTexts[@]}     "$tracking_text"  )
   AheadTexts=(        ${AheadTexts[@]}        "$ahead_text"     )
   BranchRightTexts=(  ${BranchRightTexts[@]}  "$branch_r_text"  )
   BranchLeftColors=(  ${BranchLeftColors[@]}  "$branch_l_color" )
   BehindColors=(      ${BehindColors[@]}      "$behind_color"   )
+  TrackingColors=(    ${TrackingColors[@]}    "$tracking_color" )
   AheadColors=(       ${AheadColors[@]}       "$ahead_color"    )
   BranchRightColors=( ${BranchRightColors[@]} "$branch_r_color" )
 
@@ -721,15 +736,17 @@ PrintReport() # (table_header_line synchronized_msg)
 PrintReportLine()
 {
   # select data
-  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]}    | sed "$JOIN_REGEX")
-  local behind_text=$(  echo ${BehindTexts[$result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local ahead_text=$(   echo ${AheadTexts[ $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local branch_r_text=$(echo ${BranchRightTexts[$result_n]}    | sed "$JOIN_REGEX")
-  local end_msg ; local star ;
+  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]}         | sed "$JOIN_REGEX")
+  local behind_text=$(  echo ${BehindTexts[     $result_n]:$trim_w} | sed "$JOIN_REGEX")
+  local tracking_text=$(echo ${TrackingTexts[   $result_n]}         | sed "$JOIN_REGEX")
+  local ahead_text=$(   echo ${AheadTexts[      $result_n]:$trim_w} | sed "$JOIN_REGEX")
+  local branch_r_text=$(echo ${BranchRightTexts[$result_n]}         | sed "$JOIN_REGEX")
+  local star delim end_msg
   branch_l_text="${branch_l_text:0:$LocalW}"
   branch_r_text="${branch_r_text:0:$RemoteW}"
   local branch_l_color="${BranchLeftColors[  $result_n ]}"
   local behind_color="${BehindColors[        $result_n ]}"
+  local tracking_color="${TrackingColors[    $result_n ]}"
   local ahead_color="${AheadColors[          $result_n ]}"
   local branch_r_color="${BranchRightColors[ $result_n ]}"
 
@@ -742,10 +759,11 @@ PrintReportLine()
 
   # build output messages and display
   (( $(IsCurrentBranch $branch_l_text) )) && star=$STAR || star=" "
-  branch_l_text="%$(( $branch_l_offset ))s$star$(echo -e $DELIM $branch_l_color$branch_l_text$CEND)"
-  behind_text="%$((   $behind_offset   ))s $(    echo -e $DELIM $behind_color$behind_text$CEND    )"
-  ahead_text="%$((    $ahead_offset    ))s $(    echo -e $DELIM $ahead_color$ahead_text$CEND      )"
-  branch_r_text="%$(( $branch_r_offset ))s $(    echo -e $DELIM $branch_l_color$branch_r_text$CEND)"
+  delim="$tracking_color$tracking_text$CEND"
+  branch_l_text="%$(( $branch_l_offset ))s$star$DELIM $branch_l_color$branch_l_text$CEND"
+  behind_text="%$((   $behind_offset   ))s $DELIM $behind_color$behind_text$CEND"
+  ahead_text="%$((    $ahead_offset    ))s$delim$ahead_color$ahead_text$CEND"
+  branch_r_text="%$(( $branch_r_offset ))s $DELIM $branch_l_color$branch_r_text$CEND"
   end_msg="%$((       $end_offset      ))s $DELIM"
   printf "$branch_l_text$behind_text$ahead_text$branch_r_text$end_msg\n"
 }
@@ -760,10 +778,12 @@ Reset()
   RemoteW=0
   BranchLeftTexts=()
   BehindTexts=()
+  TrackingTexts=()
   AheadTexts=()
   BranchRightTexts=()
   BranchLeftColors=()
   BehindColors=()
+  TrackingColors=()
   AheadColors=()
   BranchRightColors=()
 }
