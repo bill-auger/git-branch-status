@@ -1,3 +1,20 @@
+#  gbs-tests-constants.sh.inc - test suite for git-branch-status
+#
+#  Copyright 2020-2021,2023 bill-auger <bill-auger@programmer.net>
+#
+#  git-branch-status is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License version 3
+#  as published by the Free Software Foundation.
+#
+#  git-branch-status is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License version 3
+#  along with git-branch-status.  If not, see <http://www.gnu.org/licenses/>.
+
+
 ## string constants ##
 
 readonly GBS_CMD=git-branch-status
@@ -10,6 +27,7 @@ readonly MKTEMP_TEMPLATE='gbs-test-XXXXXXXXXX'
 readonly LOCAL_NAME='local'
 readonly UPSTREAM_NAME='the-upstream'
 readonly PEER_NAME='a-collaborator'
+readonly MASTER_BRANCH='master'
 readonly COMMON_BRANCH='development'
 readonly PEER_RENAMED_BRANCH='devel'
 readonly WIP_BRANCH='my-wip'
@@ -69,6 +87,11 @@ EOF
 
 
 ## expected normal test results ##
+
+# NOTE: the upstream and branch names are intentionally explicit
+#       eg: the-upstream/development could be ${UPSTREAM_NAME}/${COMMON_BRANCH}
+#           that would be less brittle if the constants are changed;
+#           but the explicit text is more readable for debugging
 
 IFS= read -r -d '' LOCAL_TRACKING_TEXT <<'EOF'
   local <-> upstream
@@ -271,18 +294,18 @@ IFS= read -r -d '' REMOTES_COLLAB_TEXT <<'EOF'
   | my-wip     | (behind 1) | (ahead 2) | a-collaborator/my-wip |
   ---------------------------------------------------------------
 EOF
+IFS= read -r -d '' REMOTES_ORIGIN_TEXT <<'EOF'
+  ---------------------------------------------------------------
+ *| development | (even) | (ahead 1) | the-upstream/development |
+  | master      | (even) | (even)    | the-upstream/master      |
+  ---------------------------------------------------------------
+EOF
 IFS= read -r -d '' REMOTES_COLLAB_INSYNC_TEXT <<'EOF'
   --------------------------------------------------------
   | (no local) | n/a    | n/a    | a-collaborator/devel  |
   | master     | (even) | (even) | a-collaborator/master |
   | my-wip     | (even) | (even) | a-collaborator/my-wip |
   --------------------------------------------------------
-EOF
-IFS= read -r -d '' REMOTES_ORIGIN_TEXT <<'EOF'
-  ---------------------------------------------------------------
- *| development | (even) | (ahead 1) | the-upstream/development |
-  | master      | (even) | (even)    | the-upstream/master      |
-  ---------------------------------------------------------------
 EOF
 IFS= read -r -d '' LOCALS_DATES_TEXT <<'EOF'
   -------------------------------------------------------------------------------------

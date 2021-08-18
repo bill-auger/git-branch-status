@@ -5,7 +5,7 @@
 #  Copyright 2011      Jehiah Czebotar     <https://github.com/jehiah>
 #  Copyright 2013      Fredrik Strandin    <https://github.com/kd35a>
 #  Copyright 2014      Kristijan Novoselić <https://github.com/knovoselic>
-#  Copyright 2014-2020 bill-auger          <https://github.com/bill-auger>
+#  Copyright 2014-2023 bill-auger          <bill-auger@programmer.net>
 #
 #  git-branch-status is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License version 3
@@ -27,8 +27,8 @@
 
 #  please direct bug reports, feature requests, or PRs to one of the upstream repos:
 #    * https://github.com/bill-auger/git-branch-status/issues/
-#    * https://notabug.org/bill-auger/git-branch-status/issues/
 #    * https://pagure.io/git-branch-status/issues/
+#    * https://codeberg.org/bill-auger/git-branch-status/issues/
 
 
 read -r -d '' USAGE <<-'USAGE_MSG'
@@ -221,16 +221,16 @@ LocalW=0
 BehindW=0
 AheadW=0
 RemoteW=0
-declare -a BranchLeftTexts=()
-declare -a BehindTexts=()
-declare -a TrackingTexts=()
-declare -a AheadTexts=()
-declare -a BranchRightTexts=()
-declare -a BranchLeftColors=()
-declare -a BehindColors=()
-declare -a TrackingColors=()
-declare -a AheadColors=()
-declare -a BranchRightColors=()
+declare -a BranchLeftTexts=()   # ----------------------
+declare -a BehindTexts=()       #  ^                  ^
+declare -a TrackingTexts=()     #  |                  |
+declare -a AheadTexts=()        #  |                  |
+declare -a BranchRightTexts=()  #  | striped data-set |
+declare -a BranchLeftColors=()  #  |                  |
+declare -a BehindColors=()      #  |                  |
+declare -a TrackingColors=()    #  |                  |
+declare -a AheadColors=()       #  v                  v
+declare -a BranchRightColors=() # ----------------------
 
 
 ## helpers ##
@@ -510,10 +510,9 @@ CleanupReport()
   local ahead_text
   local branch_r_text
   local compare_branch
-  local n_behind
-  local n_ahead
-  local base_branch
-  local compare_branches=()
+  local is_behind
+  local is_ahead
+  local duplicate_branches=()
 
   # compare all local branches against $FILTER_BRANCH
   while read local upstream ; do GenerateReport ${local} ${FILTER_BRANCH} ; done < <(GetLocalRefs) ;
@@ -521,24 +520,23 @@ CleanupReport()
   n_results=${#BranchLeftTexts[@]}
 
   for (( result_n = 0 ; result_n < n_results ; ++result_n ))
-  do  branch_l_text=$(echo ${BranchLeftTexts[  $result_n ]}         | sed "$JOIN_REGEX")
-      behind_text=$(  echo ${BehindTexts[      $result_n ]:$trim_w} | sed "$JOIN_REGEX")
-      ahead_text=$(   echo ${AheadTexts[       $result_n ]:$trim_w} | sed "$JOIN_REGEX")
-      branch_r_text=$(echo ${BranchRightTexts[ $result_n ]}         | sed "$JOIN_REGEX")
+  do  branch_l_text=$(echo ${BranchLeftTexts[  $result_n ]} | sed "$JOIN_REGEX")
+      behind_text=$(  echo ${BehindTexts[      $result_n ]} | sed "$JOIN_REGEX")
+      ahead_text=$(   echo ${AheadTexts[       $result_n ]} | sed "$JOIN_REGEX")
+      branch_r_text=$(echo ${BranchRightTexts[ $result_n ]} | sed "$JOIN_REGEX")
       compare_branch=$( sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_l_text}  )
-      base_branch=$(    sed -E "s|[0-9-]* +(.*)|\1|" <<<${branch_r_text}  )
       is_behind=$( [[ "${behind_text}" != "(even)" ]] && echo 1 || echo 0 )
       is_ahead=$(  [[ "${ahead_text}"  != "(even)" ]] && echo 1 || echo 0 )
 
-      ! (( $is_behind + $is_ahead )) && compare_branches+=( $compare_branch )
+      ! (( $is_behind + $is_ahead )) && duplicate_branches+=( $compare_branch )
   done
 
-  n_results=${#compare_branches[@]}
+  n_results=${#duplicate_branches[@]}
 
   PrintReport "locals <-> ${FILTER_BRANCH}" ""
   for (( result_n = 0 ; result_n < n_results ; ++result_n ))
-  do  compare_branch=${compare_branches[$result_n]}
-      echo -e "\tbranch: $compare_branch is identical to: $base_branch\n\tDelete $compare_branch? [y/N]"
+  do  compare_branch=${duplicate_branches[$result_n]}
+      echo -e "\tbranch: $compare_branch is identical to: $FILTER_BRANCH\n\tDelete $compare_branch? [y/N]"
       read -p " " -n 1 -r ; echo ; [[ $REPLY =~ ^[Yy]$ ]] && git branch -D $compare_branch > /dev/null
   done
 }
@@ -589,8 +587,11 @@ GenerateReport() # (base_branch compare_branch)
   local does_compare_branch_exist=$(DoesBranchExist $compare_branch             )
   local is_tracking=$(              IsTrackedBranch $base_branch $compare_branch)
   local is_nodiff
-  local branch_l_text  ; local behind_text  ; local tracking_text  ; local ahead_text  ; local branch_r_text  ;
-  local branch_l_color ; local behind_color ; local tracking_color ; local ahead_color ; local branch_r_color ;
+  local branch_l_text  ; local branch_l_color ;
+  local behind_text    ; local behind_color   ;
+  local tracking_text  ; local tracking_color ;
+  local ahead_text     ; local ahead_color    ;
+  local branch_r_color ; local branch_r_text  ;
 
 
   # filter out heads
@@ -645,9 +646,9 @@ GenerateReport() # (base_branch compare_branch)
   branch_l_text="$(AppendMetadata $base_branch   )"
   branch_r_text="$(AppendMetadata $compare_branch)"
   tracking_text=$(  (( is_tracking )) && echo $TRACKED_DELIM || echo $UNTRACKED_DELIM )
-  tracking_color=$( (( is_tracking )) && echo $CTRACKING || echo $CDEFAULT                  )
+  tracking_color=$( (( is_tracking )) && echo $CTRACKING     || echo $CDEFAULT        )
 
-  # populate lists
+  # populate striped lists
   BranchLeftTexts=(   ${BranchLeftTexts[@]}   "$branch_l_text"  )
   BehindTexts=(       ${BehindTexts[@]}       "$behind_text"    )
   TrackingTexts=(     ${TrackingTexts[@]}     "$tracking_text"  )
@@ -736,11 +737,11 @@ PrintReport() # (table_header_line synchronized_msg)
 PrintReportLine()
 {
   # select data
-  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]}         | sed "$JOIN_REGEX")
-  local behind_text=$(  echo ${BehindTexts[     $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local tracking_text=$(echo ${TrackingTexts[   $result_n]}         | sed "$JOIN_REGEX")
-  local ahead_text=$(   echo ${AheadTexts[      $result_n]:$trim_w} | sed "$JOIN_REGEX")
-  local branch_r_text=$(echo ${BranchRightTexts[$result_n]}         | sed "$JOIN_REGEX")
+  local branch_l_text=$(echo ${BranchLeftTexts[ $result_n]} | sed "$JOIN_REGEX")
+  local behind_text=$(  echo ${BehindTexts[     $result_n]} | sed "$JOIN_REGEX")
+  local tracking_text=$(echo ${TrackingTexts[   $result_n]} | sed "$JOIN_REGEX")
+  local ahead_text=$(   echo ${AheadTexts[      $result_n]} | sed "$JOIN_REGEX")
+  local branch_r_text=$(echo ${BranchRightTexts[$result_n]} | sed "$JOIN_REGEX")
   local star delim end_msg
   branch_l_text="${branch_l_text:0:$LocalW}"
   branch_r_text="${branch_r_text:0:$RemoteW}"
@@ -776,16 +777,11 @@ Reset()
   BehindW=0
   AheadW=0
   RemoteW=0
-  BranchLeftTexts=()
-  BehindTexts=()
-  TrackingTexts=()
-  AheadTexts=()
-  BranchRightTexts=()
-  BranchLeftColors=()
-  BehindColors=()
-  TrackingColors=()
-  AheadColors=()
-  BranchRightColors=()
+  BranchLeftTexts=()  ; BranchLeftColors=()  ;
+  BehindTexts=()      ; BehindColors=()      ;
+  TrackingTexts=()    ; TrackingColors=()    ;
+  AheadTexts=()       ; AheadColors=()       ;
+  BranchRightTexts=() ; BranchRightColors=() ;
 }
 
 
