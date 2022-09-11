@@ -317,7 +317,7 @@ IsTrackedBranch() # (base_branch_name compare_branch_name)
 DoesBranchExist() # (branch_name)
 {
   local branch=$1
-  local is_known_branch=$(git branch -a | grep -E "^.* (remotes\/)?$branch$")
+  local is_known_branch=$(git branch -a | grep -E "^.* (remotes/)?$branch$")
 
   [[ "$is_known_branch" ]] && echo 1 || echo 0
 }
