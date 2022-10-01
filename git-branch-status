@@ -249,7 +249,7 @@ AssertIsNotBareRepo()
 GetRefs() # (refs_dir)
 {
   local refs_dir=$1
-  local fmt='%(refname:short) %(upstream:short)'
+  local fmt='%(refname:strip=2) %(upstream:strip=2)'
   local sort_key=$( (( $SHOW_AUTHOR_DATES )) && echo 'authordate' || echo 'committerdate' )
   local sort=$(     (( $SHOW_DATES        )) && echo "--sort=$sort_key"                   )
 
