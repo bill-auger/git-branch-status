@@ -330,18 +330,14 @@ GitMeta() # (ref fmt)
 AppendMetadata() # (ref)
 {
   local ref=$1
+  local has_ref=$( [[ "${ref}" =~ (${NO_UPSTREAM}|${NO_LOCAL}) ]] ; echo $(($?)) ; )
   local date_fmt=$( (( ${SHOW_AUTHOR_DATES} )) && echo '%as' || echo '%cs' )
   local log_fmt='%B'
   local date=$(GitMeta $ref "$date_fmt")
   local log="$(GitMeta $ref "$log_fmt" )"
 
-  if   (( ${SHOW_LOGS}  ))
-  then (( ${SHOW_DATES} )) && ref="$date${JOIN_CHAR}$ref"
-       echo "${ref}:${JOIN_CHAR}${log}"
-  elif (( ${SHOW_DATES} ))
-  then echo "${date}${JOIN_CHAR}${ref}"
-  else echo $ref
-  fi
+  (( SHOW_DATES && has_ref )) && echo -n "${date}${JOIN_CHAR}"
+  (( SHOW_LOGS  && has_ref )) && echo "${ref}:${JOIN_CHAR}${log}" || echo "${ref}"
 }
 
 CurrentTtyW()
