@@ -140,7 +140,7 @@ IFS= read -r -d '' REMOTES_INSYNC_TEXT <<'EOF'
 EOF
 IFS= read -r -d '' OUTOFSYNCH_TEXT <<'EOF'
   ---------------------------------------------------------------
- *| development | (even) | (ahead 1) | the-upstream/development |
+ *| development | (even)-|-(ahead 1) | the-upstream/development |
   ---------------------------------------------------------------
 EOF
 IFS= read -r -d '' ARBITRARYBRANCHES_LOCALDEV_LOCALWIP_TEXT <<'EOF'
@@ -160,7 +160,7 @@ IFS= read -r -d '' ARBITRARYBRANCHES_PEERWIP_LOCALWIP_TEXT <<'EOF'
 EOF
 IFS= read -r -d '' CURRENTBRANCH_TEXT <<'EOF'
   ---------------------------------------------------------------
- *| development | (even) | (ahead 1) | the-upstream/development |
+ *| development | (even)-|-(ahead 1) | the-upstream/development |
   ---------------------------------------------------------------
 EOF
 IFS= read -r -d '' SPECIFICBRANCH_TEXT <<'EOF'
@@ -170,7 +170,7 @@ IFS= read -r -d '' SPECIFICBRANCH_TEXT <<'EOF'
 EOF
 IFS= read -r -d '' OUTOFSYNCH_DATES_TEXT <<'EOF'
   -------------------------------------------------------------------------------------
-  | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
+  | 2000-01-06 development | (even)-|-(ahead 1) | 2000-01-02 the-upstream/development |
   -------------------------------------------------------------------------------------
 EOF
 IFS= read -r -d '' CLEANUP_TEXT <<'EOF'
@@ -282,8 +282,8 @@ EXAMPLES:
 EOF
 IFS= read -r -d '' LOCALS_TEXT <<'EOF'
   ---------------------------------------------------------------
- *| development | (even) | (ahead 1) | the-upstream/development |
-  | master      | (even) | (even)    | the-upstream/master      |
+ *| development | (even)-|-(ahead 1) | the-upstream/development |
+  | master      | (even)-|-(even)    | the-upstream/master      |
   | my-wip      | n/a    | n/a       | (no upstream)            |
   ---------------------------------------------------------------
 EOF
@@ -296,8 +296,8 @@ IFS= read -r -d '' REMOTES_COLLAB_TEXT <<'EOF'
 EOF
 IFS= read -r -d '' REMOTES_ORIGIN_TEXT <<'EOF'
   ---------------------------------------------------------------
- *| development | (even) | (ahead 1) | the-upstream/development |
-  | master      | (even) | (even)    | the-upstream/master      |
+ *| development | (even)-|-(ahead 1) | the-upstream/development |
+  | master      | (even)-|-(even)    | the-upstream/master      |
   ---------------------------------------------------------------
 EOF
 IFS= read -r -d '' REMOTES_COLLAB_INSYNC_TEXT <<'EOF'
@@ -308,32 +308,32 @@ IFS= read -r -d '' REMOTES_COLLAB_INSYNC_TEXT <<'EOF'
   --------------------------------------------------------
 EOF
 IFS= read -r -d '' LOCALS_DATES_TEXT <<'EOF'
-  -------------------------------------------------------------------------------------
-  | 2000-01-01 master      | (even) | (even)    | 2000-01-01 the-upstream/master      |
-  | 2000-01-03 my-wip      | n/a    | n/a       | (no upstream)                       |
-  | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
-  -------------------------------------------------------------------------------------
+  -------------------------------------------------------------------------------------------------------------------
+  | 2000-01-01 master: upstream-initial | (even)-|-(even)    | 2000-01-01 the-upstream/master: upstream-initial     |
+  | 2000-01-03 my-wip: peer-change      | n/a    | n/a       | (no upstream)                                        |
+  | 2000-01-06 development: rm          | (even)-|-(ahead 1) | 2000-01-02 the-upstream/development: upstream-change |
+  -------------------------------------------------------------------------------------------------------------------
 EOF
 IFS= read -r -d '' REMOTES_COLLAB_DATES_TEXT <<'EOF'
-  --------------------------------------------------------------------------
-  | 2000-01-01 master | (even) | (even) | 2000-01-01 a-collaborator/master |
-  | (no local)        | n/a    | n/a    | 2000-01-02 a-collaborator/devel  |
-  | 2000-01-03 my-wip | (even) | (even) | 2000-01-03 a-collaborator/my-wip |
-  --------------------------------------------------------------------------
+  --------------------------------------------------------------------------------------------------------------
+  | 2000-01-01 master: upstream-initial | (even) | (even) | 2000-01-01 a-collaborator/master: upstream-initial |
+  | (no local)                          | n/a    | n/a    | 2000-01-02 a-collaborator/devel: upstream-change   |
+  | 2000-01-03 my-wip: peer-change      | (even) | (even) | 2000-01-03 a-collaborator/my-wip: peer-change      |
+  --------------------------------------------------------------------------------------------------------------
 EOF
 IFS= read -r -d '' REMOTES_ORIGIN_DATES_TEXT <<'EOF'
-  -------------------------------------------------------------------------------------
-  | 2000-01-01 master      | (even) | (even)    | 2000-01-01 the-upstream/master      |
-  | 2000-01-06 development | (even) | (ahead 1) | 2000-01-02 the-upstream/development |
-  -------------------------------------------------------------------------------------
+  -------------------------------------------------------------------------------------------------------------------
+  | 2000-01-01 master: upstream-initial | (even)-|-(even)    | 2000-01-01 the-upstream/master: upstream-initial     |
+  | 2000-01-06 development: rm          | (even)-|-(ahead 1) | 2000-01-02 the-upstream/development: upstream-change |
+  -------------------------------------------------------------------------------------------------------------------
 EOF
 IFS= read -r -d '' NCOMMITS_OVERCAP_TEXT <<'EOF'
   -----------------------------------------------------------------
- *| development | (even) | (ahead>999) | the-upstream/development |
+ *| development | (even)-|-(ahead>999) | the-upstream/development |
   -----------------------------------------------------------------
 EOF
 IFS= read -r -d '' NCOMMITS_UNDERCAP_TEXT <<'EOF'
   -----------------------------------------------------------------
- *| development | (even) | (ahead 999) | the-upstream/development |
+ *| development | (even)-|-(ahead 999) | the-upstream/development |
   -----------------------------------------------------------------
 EOF
