@@ -300,6 +300,16 @@ TestPresentation()
 
   export GBS_TEST_CFG=0
 
+  TestName="tracked"
+  Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${CURRENTBRANCH_TEXT}")"
+  Actual=$(git-branch-status ${COMMON_BRANCH})
+  AssertEqual
+
+  TestName="untracked"
+  Expected="$(printf "\n%s%s" "${LOCAL_TRACKING_TEXT}" "${SPECIFICBRANCH_TEXT}")"
+  Actual=$(git-branch-status ${WIP_BRANCH})
+  AssertEqual
+
   local commit_n
   (git checkout ${COMMON_BRANCH} ; git reset --hard ${UPSTREAM_NAME}/${COMMON_BRANCH}) &> /dev/null
 
