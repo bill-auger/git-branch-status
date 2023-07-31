@@ -318,7 +318,7 @@ IsTrackedBranch() # (base_branch_name compare_branch_name)
   local compare_branch=$2
   local upstream_branch=$(GetUpstreamBranch $base_branch)
 
-  [[ "$compare_branch" == "$upstream_branch" ]] && echo 1 || echo 0
+  [[ "$compare_branch" && "$compare_branch" == "$upstream_branch" ]] && echo 1 || echo 0
 }
 
 DoesBranchExist() # (branch_name)
