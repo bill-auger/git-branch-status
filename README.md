@@ -137,6 +137,27 @@ EXAMPLES:
    *| 1999-12-31 local-wip: a wip       | n/a        | n/a    | (no upstream)                            |
 ```
 
+## Installation
+
+```bash
+# To install, simply clone the repo:
+git clone git@github.com:bill-auger/git-branch-status.git
+cd git-branch-status
+
+# OR download the bash script and make it executable:
+wget https://raw.githubusercontent.com/bill-auger/git-branch-status/refs/heads/master/git-branch-status
+chmod +x git-branch-status
+
+# and add it to your path:
+export PATH=$PATH:$PWD
+
+# Add the export to ~/.bashrc to install globally
+echo "export PATH=\$PATH:$PWD" >> ~/.bashrc
+
+# If you're not using bash, you should already know what you're doing ;-)
+```
+
+## Contributing
 
 _NOTE: please direct bug reports, feature requests, or PRs to one of the upstream repos:_
 * [https://github.com/bill-auger/git-branch-status/issues/][github-issues]
