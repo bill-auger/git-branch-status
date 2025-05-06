@@ -36,6 +36,43 @@ A number of command-line switches exist, selecting various reports that compare 
   * In arbitrary branch comparison reports, the green message indicates that the two compared branches are synchronized with each other.
 
 
+## Installation
+
+`git-branch-status` is a single-script BASH program. However it was obtained, it is
+ready-to-use as-is. If you plan to hack or contribute to git-branch-status itself, you can
+clone or fork the (this) repo from any of the VCS hosts listed at the end of this README. 
+Simply make the script executable and add it's directory to your $PATH variable. 
+
+For example:
+
+```bash
+# Download the `git-branch-status` script:
+mkdir ~/bin
+cd ~/bin
+wget https://raw.githubusercontent.com/bill-auger/git-branch-status/refs/heads/master/git-branch-status
+
+# OR, if you plan to hack or contribute to git-branch-status itself:
+git clone https://codeberg.org/bill-auger/git-branch-status.git -b development
+cd git-branch-status
+
+# However it was obtained, make it executable:
+chmod +x git-branch-status
+
+# and add it to your path:
+export PATH=$PATH:$PWD
+
+# and/or add the export to your shell init script for future use:
+echo "export PATH=\$PATH:$PWD" >> ~/.bashrc
+```
+
+## Configuration
+
+Various special features may be configured via the optional 'gbs-config.sh.inc' file.
+Refer to the provided 'gbs-config.sh.inc.example' file for details.
+
+
+## Usage
+
 ```
 USAGE:
 
@@ -137,35 +174,24 @@ EXAMPLES:
    *| 1999-12-31 local-wip: a wip       | n/a        | n/a    | (no upstream)                            |
 ```
 
-## Installation
-
-```bash
-# To install, simply clone the repo:
-git clone git@github.com:bill-auger/git-branch-status.git
-cd git-branch-status
-
-# OR download the bash script and make it executable:
-wget https://raw.githubusercontent.com/bill-auger/git-branch-status/refs/heads/master/git-branch-status
-chmod +x git-branch-status
-
-# and add it to your path:
-export PATH=$PATH:$PWD
-
-# Add the export to ~/.bashrc to install globally
-echo "export PATH=\$PATH:$PWD" >> ~/.bashrc
-
-# If you're not using bash, you should already know what you're doing ;-)
-```
 
 ## Contributing
 
-_NOTE: please direct bug reports, feature requests, or PRs to one of the upstream repos:_
-* [https://github.com/bill-auger/git-branch-status/issues/][github-issues]
-* [https://pagure.io/git-branch-status/issues/][pagure-issues]
+This software may be used and/or distributed under the terms of the [GPLv3 license](LICENSE).
+
+Please direct bug reports, feature requests, or merge requests to one of the upstream repos:
 * [https://codeberg.org/bill-auger/git-branch-status/issues/][codeberg-issues]
+* [https://github.com/bill-auger/git-branch-status/issues/][github-issues]
+* [https://gitlab.com/bill-auger/git-branch-status/issues/][gitlab-issues]
+* [https://pagure.io/git-branch-status/issues/][pagure-issues]
+
+Or (of course), simply email the maintainer: bill-auger.
+
+Please target proposed changes against the latest 'development' branch.
 
 
-[scrot]:          http://bill-auger.github.io/git-branch-status-scrot.png "git-branch-status screen-shot"
-[github-issues]:  https://github.com/bill-auger/git-branch-status/issues/
-[pagure-issues]:  https://pagure.io/git-branch-status/issues/
+[scrot]:           http://bill-auger.github.io/git-branch-status-scrot.png "git-branch-status screen-shot"
 [codeberg-issues]: https://codeberg.org/bill-auger/git-branch-status/issues/
+[github-issues]:   https://github.com/bill-auger/git-branch-status/issues/
+[gitlab-issues]:   https://gitlab.com/bill-auger/git-branch-status/issues/
+[pagure-issues]:   https://pagure.io/git-branch-status/issues/
